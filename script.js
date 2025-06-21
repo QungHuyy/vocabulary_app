@@ -170,39 +170,15 @@ class VocabularyApp {
     }
 
     setupEventListeners() {
-        // Tab switching
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
-        });
-
-        // Add word form
-        document.getElementById('addWordForm').addEventListener('submit', (e) => this.addWord(e));
+        // Note: Removed individual element listeners since they're handled by the global setupEventListeners in HTML
+        // The HTML file handles all event listeners to avoid null element errors
         
-        // Add lesson form
-        document.getElementById('addLessonForm').addEventListener('submit', (e) => this.addLesson(e));
-
-        // Search and filter
-        document.getElementById('searchWord').addEventListener('input', () => this.renderWordsList());
-        document.getElementById('filterCategory').addEventListener('change', () => this.renderWordsList());
-        document.getElementById('filterLesson').addEventListener('change', () => this.renderWordsList());
-
-        // Quiz
-        document.getElementById('startQuiz').addEventListener('click', () => this.startQuiz());
-
-        // Practice modes
-        document.getElementById('startFlashcards').addEventListener('click', () => this.startFlashcards());
-        document.getElementById('startSpelling').addEventListener('click', () => this.startSpellingTest());
-        document.getElementById('startMatching').addEventListener('click', () => this.startMatchingGame());
-        document.getElementById('startSpeed').addEventListener('click', () => this.startSpeedChallenge());
-        document.getElementById('startListening').addEventListener('click', () => this.startListeningPractice());
-
-        // Review
-        document.getElementById('startReview').addEventListener('click', () => this.startReview());
-        document.getElementById('shuffleReview').addEventListener('click', () => this.shuffleReview());
-
-        // Modal
-        document.getElementById('cancelDelete').addEventListener('click', () => this.hideModal());
-        document.getElementById('confirmDelete').addEventListener('click', () => this.confirmDelete());
+        // Setup autocomplete and translation features
+        this.setupAutocomplete();
+        this.setupTranslation();
+        
+        // Load voices for speech synthesis
+        this.loadVoices();
     }
 
     switchTab(tabName) {
@@ -599,12 +575,33 @@ class VocabularyApp {
             return;
         }
 
-        const quizLength = parseInt(document.getElementById('quizLength').value);
+        // Get custom number of questions
+        const customQuestions = prompt(`Nhập số câu hỏi muốn làm (tối đa ${selectedWords.length} từ có sẵn):`, '20');
+        if (customQuestions === null) return; // User cancelled
+        
+        const quizLength = parseInt(customQuestions);
+        if (isNaN(quizLength) || quizLength <= 0) {
+            this.showMessage('Số câu hỏi không hợp lệ!', 'error');
+            return;
+        }
+
         const quizMode = document.getElementById('quizMode').value;
         
-        // Shuffle words and select quiz length
-        const shuffledWords = [...selectedWords].sort(() => Math.random() - 0.5);
-        const quizWords = shuffledWords.slice(0, Math.min(quizLength, selectedWords.length));
+        // Generate questions with repetition if needed
+        let quizWords = [];
+        if (quizLength <= selectedWords.length) {
+            // Enough words available
+            const shuffledWords = [...selectedWords].sort(() => Math.random() - 0.5);
+            quizWords = shuffledWords.slice(0, quizLength);
+        } else {
+            // Need to repeat words
+            quizWords = [...selectedWords];
+            while (quizWords.length < quizLength) {
+                const remainingNeeded = quizLength - quizWords.length;
+                const additionalWords = [...selectedWords].sort(() => Math.random() - 0.5).slice(0, remainingNeeded);
+                quizWords.push(...additionalWords);
+            }
+        }
         
         this.currentQuiz = {
             words: quizWords,
@@ -1362,14 +1359,143 @@ class VocabularyApp {
         // Hide mode selector
         document.querySelector('.practice-mode-selector').style.display = 'none';
         
-        // Show selected practice content
-        document.querySelectorAll('.practice-content').forEach(content => {
-            content.style.display = 'none';
-        });
-        document.getElementById(`${mode}-content`).style.display = 'block';
+        // Generate and show practice content
+        const container = document.getElementById('practiceContainer');
+        container.innerHTML = this.generatePracticeHTML(mode);
+        container.style.display = 'block';
         
-        // Render lesson checkboxes for this practice mode
+        // Setup event listeners and render checkboxes
+        this.setupPracticeModeEventListeners(mode);
         this.renderPracticeLessonCheckboxes(mode);
+        this.updatePracticeInfo(mode);
+    }
+
+    generatePracticeHTML(mode) {
+        const modeConfig = {
+            quiz: {
+                icon: 'fas fa-question-circle',
+                title: 'Quiz - Trắc nghiệm',
+                description: 'Sẵn sàng kiểm tra kiến thức từ vựng của bạn?',
+                startText: 'Bắt đầu Quiz',
+                settings: `
+                    <div class="quiz-settings">
+                        <label>
+                            Chế độ:
+                            <select id="quizMode">
+                                <option value="en-to-vi">Anh → Việt</option>
+                                <option value="vi-to-en">Việt → Anh</option>
+                                <option value="mixed">Hỗn hợp</option>
+                            </select>
+                        </label>
+                    </div>
+                `
+            },
+            flashcards: {
+                icon: 'fas fa-clone',
+                title: 'Flashcards - Lật thẻ từ vựng',
+                description: 'Lật thẻ để học từ vựng một cách hiệu quả!',
+                startText: 'Bắt đầu Flashcards',
+                settings: '<p><strong>Hướng dẫn:</strong> SPACE (lật thẻ) | ← (chưa nhớ) | → (đã nhớ)</p>'
+            },
+            spelling: {
+                icon: 'fas fa-spell-check',
+                title: 'Spelling Test - Kiểm tra chính tả',
+                description: 'Nghe và viết đúng từ vựng!',
+                startText: 'Bắt đầu Spelling Test',
+                settings: ''
+            },
+            matching: {
+                icon: 'fas fa-puzzle-piece',
+                title: 'Matching Game - Trò chơi ghép từ',
+                description: 'Ghép từ tiếng Anh với nghĩa tiếng Việt!',
+                startText: 'Bắt đầu Matching Game',
+                settings: '<p>Mỗi ván chơi tối đa 8 từ. Chơi cho đến khi hoàn thành tất cả từ đã chọn.</p>'
+            },
+            speed: {
+                icon: 'fas fa-bolt',
+                title: 'Speed Challenge - Thử thách tốc độ',
+                description: 'Trả lời nhanh nhất có thể trong thời gian cho phép!',
+                startText: 'Bắt đầu Speed Challenge',
+                settings: `
+                    <div class="speed-settings">
+                        <label>
+                            Thời gian:
+                            <select id="speedTime">
+                                <option value="30">30 giây</option>
+                                <option value="60" selected>60 giây</option>
+                                <option value="120">2 phút</option>
+                            </select>
+                        </label>
+                    </div>
+                `
+            },
+            listening: {
+                icon: 'fas fa-headphones',
+                title: 'Listening Practice - Luyện nghe',
+                description: 'Nghe và chọn nghĩa đúng của từ!',
+                startText: 'Bắt đầu Listening Practice',
+                settings: ''
+            }
+        };
+
+        const config = modeConfig[mode];
+        
+        return `
+            <div class="practice-content" id="${mode}-content">
+                <div class="practice-header-small">
+                    <h3><i class="${config.icon}"></i> ${config.title}</h3>
+                    <button class="btn btn-secondary" onclick="app.backToModeSelector()">
+                        <i class="fas fa-arrow-left"></i> Quay lại
+                    </button>
+                </div>
+                
+                <!-- Lesson Selection -->
+                <div class="practice-lesson-selector">
+                    <h4><i class="fas fa-check-square"></i> Chọn bài học để luyện tập:</h4>
+                    <div class="practice-lesson-checkboxes" id="${mode}LessonCheckboxes">
+                        <!-- Checkboxes will be populated by JavaScript -->
+                    </div>
+                    <div class="practice-select-controls">
+                        <button type="button" class="btn btn-small btn-secondary" onclick="app.selectAllPracticeLessons('${mode}')">
+                            <i class="fas fa-check-double"></i> Chọn tất cả
+                        </button>
+                        <button type="button" class="btn btn-small btn-secondary" onclick="app.deselectAllPracticeLessons('${mode}')">
+                            <i class="fas fa-times"></i> Bỏ chọn tất cả
+                        </button>
+                    </div>
+                    <div class="selected-practice-info" id="${mode}SelectedInfo">
+                        <i class="fas fa-info-circle"></i> Chưa chọn bài học nào
+                    </div>
+                </div>
+                
+                ${config.settings}
+                
+                <div id="${mode}Content">
+                    <div class="${mode}-start">
+                        <p>${config.description}</p>
+                        <button id="start${mode.charAt(0).toUpperCase() + mode.slice(1)}" class="btn btn-primary">
+                            <i class="fas fa-play"></i> ${config.startText}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    setupPracticeModeEventListeners(mode) {
+        const startBtn = document.getElementById(`start${mode.charAt(0).toUpperCase() + mode.slice(1)}`);
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                switch(mode) {
+                    case 'quiz': this.startQuiz(); break;
+                    case 'flashcards': this.startFlashcards(); break;
+                    case 'spelling': this.startSpellingTest(); break;
+                    case 'matching': this.startMatchingGame(); break;
+                    case 'speed': this.startSpeedChallenge(); break;
+                    case 'listening': this.startListeningPractice(); break;
+                }
+            });
+        }
     }
 
     backToModeSelector() {
@@ -1388,13 +1514,10 @@ class VocabularyApp {
         this.resetSpeedChallenge();
         this.resetListeningPractice();
         
-        // Show mode selector
+        // Show mode selector and clear practice container
         document.querySelector('.practice-mode-selector').style.display = 'block';
-        
-        // Hide all practice contents
-        document.querySelectorAll('.practice-content').forEach(content => {
-            content.style.display = 'none';
-        });
+        document.getElementById('practiceContainer').innerHTML = '';
+        document.getElementById('practiceContainer').style.display = 'none';
     }
 
     // Flashcards Implementation
@@ -1617,9 +1740,33 @@ class VocabularyApp {
             return;
         }
 
-        const length = parseInt(document.getElementById('spellingLength').value);
+        // Get custom number of words
+        const customWords = prompt(`Nhập số từ muốn kiểm tra (tối đa ${selectedWords.length} từ có sẵn):`, '15');
+        if (customWords === null) return; // User cancelled
+        
+        const numWords = parseInt(customWords);
+        if (isNaN(numWords) || numWords <= 0) {
+            this.showMessage('Số từ không hợp lệ!', 'error');
+            return;
+        }
+
+        // Generate words with repetition if needed
+        let testWords = [];
+        if (numWords <= selectedWords.length) {
+            // Enough words available
+            testWords = [...selectedWords].sort(() => Math.random() - 0.5).slice(0, numWords);
+        } else {
+            // Need to repeat words
+            testWords = [...selectedWords];
+            while (testWords.length < numWords) {
+                const remainingNeeded = numWords - testWords.length;
+                const additionalWords = [...selectedWords].sort(() => Math.random() - 0.5).slice(0, remainingNeeded);
+                testWords.push(...additionalWords);
+            }
+        }
+
         this.currentSpellingTest = {
-            words: [...selectedWords].sort(() => Math.random() - 0.5).slice(0, Math.min(length, selectedWords.length)),
+            words: testWords,
             currentIndex: 0,
             correctAnswers: 0,
             userAnswers: []
@@ -1791,7 +1938,7 @@ class VocabularyApp {
         }
     }
 
-    // Matching Game Implementation
+    // Matching Game Implementation - Multi-round system
     startMatchingGame() {
         const selectedWords = this.getSelectedPracticeWords('matching');
         
@@ -1800,20 +1947,39 @@ class VocabularyApp {
             return;
         }
 
-        const gameWords = [...selectedWords].sort(() => Math.random() - 0.5).slice(0, Math.min(8, selectedWords.length));
-        
-        // Randomly determine column order
+        // Initialize game session with all words
+        this.currentMatchingGame = {
+            allWords: [...selectedWords].sort(() => Math.random() - 0.5),
+            currentRound: 0,
+            totalRounds: Math.ceil(selectedWords.length / 8),
+            completedWords: [],
+            totalScore: 0,
+            totalAttempts: 0,
+            gameStarted: true
+        };
+
+        this.startMatchingRound();
+    }
+
+    startMatchingRound() {
+        const game = this.currentMatchingGame;
+        const wordsPerRound = 8;
+        const startIndex = game.currentRound * wordsPerRound;
+        const endIndex = Math.min(startIndex + wordsPerRound, game.allWords.length);
+        const roundWords = game.allWords.slice(startIndex, endIndex);
+
+        // Randomly determine column order for this round
         const isEnglishFirst = Math.random() < 0.5;
         
-        this.currentMatchingGame = {
-            words: gameWords,
-            leftWords: gameWords.map(w => ({ 
+        game.currentRoundData = {
+            words: roundWords,
+            leftWords: roundWords.map(w => ({ 
                 ...w, 
                 type: isEnglishFirst ? 'english' : 'vietnamese', 
                 matched: false,
                 displayText: isEnglishFirst ? w.english : w.vietnamese
             })),
-            rightWords: gameWords.map(w => ({ 
+            rightWords: roundWords.map(w => ({ 
                 ...w, 
                 type: isEnglishFirst ? 'vietnamese' : 'english', 
                 matched: false,
@@ -1831,20 +1997,22 @@ class VocabularyApp {
     renderMatchingGame() {
         const container = document.getElementById('matchingContent');
         const game = this.currentMatchingGame;
+        const roundData = game.currentRoundData;
         
-        const leftTitle = game.isEnglishFirst ? 'Tiếng Anh' : 'Tiếng Việt';
-        const rightTitle = game.isEnglishFirst ? 'Tiếng Việt' : 'Tiếng Anh';
+        const leftTitle = roundData.isEnglishFirst ? 'Tiếng Anh' : 'Tiếng Việt';
+        const rightTitle = roundData.isEnglishFirst ? 'Tiếng Việt' : 'Tiếng Anh';
         
         container.innerHTML = `
             <div class="matching-progress">
-                <p>Điểm: ${game.score} / ${game.words.length}</p>
-                <p>Số lần thử: ${game.attempts}</p>
+                <p><strong>Ván ${game.currentRound + 1} / ${game.totalRounds}</strong></p>
+                <p>Ván này: ${roundData.score} / ${roundData.words.length} | Tổng: ${game.totalScore + roundData.score} / ${game.allWords.length}</p>
+                <p>Số lần thử ván này: ${roundData.attempts}</p>
             </div>
             
             <div class="matching-game">
                 <div class="matching-column">
                     <h4>${leftTitle}</h4>
-                    ${game.leftWords.map((word, index) => `
+                    ${roundData.leftWords.map((word, index) => `
                         <div class="matching-item ${word.matched ? 'matched' : ''}" 
                              onclick="app.selectMatchingItem('left', ${index})" 
                              data-id="${word.id}">
@@ -1860,7 +2028,7 @@ class VocabularyApp {
                 
                 <div class="matching-column">
                     <h4>${rightTitle}</h4>
-                    ${game.rightWords.map((word, index) => `
+                    ${roundData.rightWords.map((word, index) => `
                         <div class="matching-item ${word.matched ? 'matched' : ''}" 
                              onclick="app.selectMatchingItem('right', ${index})" 
                              data-id="${word.id}">
@@ -1878,7 +2046,8 @@ class VocabularyApp {
     }
 
     selectMatchingItem(side, index) {
-        const item = this.currentMatchingGame[side + 'Words'][index];
+        const roundData = this.currentMatchingGame.currentRoundData;
+        const item = roundData[side + 'Words'][index];
         
         if (item.matched) return;
         
@@ -1887,68 +2056,106 @@ class VocabularyApp {
             el.classList.remove('selected', 'wrong');
         });
         
-        if (this.currentMatchingGame.selectedItem) {
-            if (this.currentMatchingGame.selectedItem.side === side && 
-                this.currentMatchingGame.selectedItem.index === index) {
+        if (roundData.selectedItem) {
+            if (roundData.selectedItem.side === side && 
+                roundData.selectedItem.index === index) {
                 // Deselect if clicking the same item
-                this.currentMatchingGame.selectedItem = null;
+                roundData.selectedItem = null;
                 return;
             }
             
             // Check if it's a match
-            const selected = this.currentMatchingGame.selectedItem;
+            const selected = roundData.selectedItem;
             if (selected.side !== side && selected.item.id === item.id) {
                 // It's a match!
-                this.currentMatchingGame.score++;
-                this.currentMatchingGame.attempts++;
+                roundData.score++;
+                roundData.attempts++;
                 
                 // Mark as matched
-                this.currentMatchingGame.leftWords.find(w => w.id === item.id).matched = true;
-                this.currentMatchingGame.rightWords.find(w => w.id === item.id).matched = true;
+                roundData.leftWords.find(w => w.id === item.id).matched = true;
+                roundData.rightWords.find(w => w.id === item.id).matched = true;
                 
-                this.currentMatchingGame.selectedItem = null;
+                roundData.selectedItem = null;
                 
-                if (this.currentMatchingGame.score === this.currentMatchingGame.words.length) {
-                    setTimeout(() => this.finishMatchingGame(), 500);
+                if (roundData.score === roundData.words.length) {
+                    // Round completed
+                    this.currentMatchingGame.totalScore += roundData.score;
+                    this.currentMatchingGame.totalAttempts += roundData.attempts;
+                    this.currentMatchingGame.currentRound++;
+                    
+                    setTimeout(() => {
+                        if (this.currentMatchingGame.currentRound < this.currentMatchingGame.totalRounds) {
+                            // Start next round
+                            this.showRoundTransition();
+                        } else {
+                            // Game completed
+                            this.finishMatchingGame();
+                        }
+                    }, 500);
                 } else {
                     this.renderMatchingGame();
                 }
                 return;
             } else {
                 // Wrong match
-                this.currentMatchingGame.attempts++;
+                roundData.attempts++;
                 
                 // Show wrong animation
                 document.querySelector(`[data-id="${selected.item.id}"]`).classList.add('wrong');
                 document.querySelector(`[data-id="${item.id}"]`).classList.add('wrong');
                 
                 setTimeout(() => {
-                    this.currentMatchingGame.selectedItem = null;
+                    roundData.selectedItem = null;
                     this.renderMatchingGame();
                 }, 1000);
                 return;
             }
         } else {
             // First selection
-            this.currentMatchingGame.selectedItem = { side, index, item };
+            roundData.selectedItem = { side, index, item };
             document.querySelector(`[data-id="${item.id}"]`).classList.add('selected');
         }
     }
 
+    showRoundTransition() {
+        const container = document.getElementById('matchingContent');
+        const game = this.currentMatchingGame;
+        
+        container.innerHTML = `
+            <div class="round-transition">
+                <h3>🎉 Hoàn thành ván ${game.currentRound}!</h3>
+                <p>Điểm ván này: ${game.currentRoundData.score} / ${game.currentRoundData.words.length}</p>
+                <p>Tổng điểm: ${game.totalScore} / ${(game.currentRound) * 8}</p>
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="app.startMatchingRound()">
+                        <i class="fas fa-arrow-right"></i> Tiếp tục ván ${game.currentRound + 1}
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
     finishMatchingGame() {
-        const accuracy = Math.round((this.currentMatchingGame.score / this.currentMatchingGame.attempts) * 100);
+        const game = this.currentMatchingGame;
+        const totalScore = game.totalScore;
+        const totalWords = game.allWords.length;
+        const totalAttempts = game.totalAttempts;
+        const accuracy = Math.round((totalScore / totalAttempts) * 100);
         const container = document.getElementById('matchingContent');
         
         container.innerHTML = `
             <div class="practice-result">
-                <h3><i class="fas fa-puzzle-piece" style="color: #4facfe;"></i> Hoàn thành Matching Game!</h3>
+                <h3><i class="fas fa-puzzle-piece" style="color: #4facfe;"></i> Hoàn thành tất cả ${game.totalRounds} ván!</h3>
                 <div class="quiz-score">${accuracy}%</div>
-                <p>Ghép đúng ${this.currentMatchingGame.score} / ${this.currentMatchingGame.words.length} cặp</p>
-                <p>Số lần thử: ${this.currentMatchingGame.attempts}</p>
+                <p><strong>Tổng kết:</strong></p>
+                <p>• Ghép đúng: ${totalScore} / ${totalWords} cặp</p>
+                <p>• Số ván đã chơi: ${game.totalRounds}</p>
+                <p>• Tổng số lần thử: ${totalAttempts}</p>
+                <p>• Độ chính xác: ${accuracy}%</p>
                 
                 <div style="margin-top: 20px;">
                     <button class="btn btn-primary" onclick="app.startMatchingGame()">
-                        <i class="fas fa-redo"></i> Chơi lại
+                        <i class="fas fa-redo"></i> Chơi lại tất cả
                     </button>
                     <button class="btn btn-secondary" onclick="app.backToModeSelector()">
                         <i class="fas fa-arrow-left"></i> Chọn chế độ khác
@@ -2167,9 +2374,33 @@ class VocabularyApp {
             return;
         }
 
-        const length = parseInt(document.getElementById('listeningLength').value);
+        // Get custom number of questions
+        const customQuestions = prompt(`Nhập số câu hỏi muốn luyện (tối đa ${selectedWords.length} từ có sẵn):`, '20');
+        if (customQuestions === null) return; // User cancelled
+        
+        const numQuestions = parseInt(customQuestions);
+        if (isNaN(numQuestions) || numQuestions <= 0) {
+            this.showMessage('Số câu hỏi không hợp lệ!', 'error');
+            return;
+        }
+
+        // Generate questions with repetition if needed
+        let practiceWords = [];
+        if (numQuestions <= selectedWords.length) {
+            // Enough words available
+            practiceWords = [...selectedWords].sort(() => Math.random() - 0.5).slice(0, numQuestions);
+        } else {
+            // Need to repeat words
+            practiceWords = [...selectedWords];
+            while (practiceWords.length < numQuestions) {
+                const remainingNeeded = numQuestions - practiceWords.length;
+                const additionalWords = [...selectedWords].sort(() => Math.random() - 0.5).slice(0, remainingNeeded);
+                practiceWords.push(...additionalWords);
+            }
+        }
+
         this.currentListeningPractice = {
-            words: [...selectedWords].sort(() => Math.random() - 0.5).slice(0, Math.min(length, selectedWords.length)),
+            words: practiceWords,
             currentIndex: 0,
             correctAnswers: 0
         };

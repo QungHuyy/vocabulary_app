@@ -188,7 +188,7 @@
                             <div class="practice-mode-card" onclick="app.selectPracticeMode('quiz')">
                                 <i class="fas fa-question-circle"></i>
                                 <h4>Quiz</h4>
-                                <p>Trắc nghiệm truyền thống</p>
+                                <p>Trắc nghiệm tùy chỉnh</p>
                             </div>
                             <div class="practice-mode-card" onclick="app.selectPracticeMode('flashcards')">
                                 <i class="fas fa-clone"></i>
@@ -203,7 +203,7 @@
                             <div class="practice-mode-card" onclick="app.selectPracticeMode('matching')">
                                 <i class="fas fa-puzzle-piece"></i>
                                 <h4>Matching Game</h4>
-                                <p>Trò chơi ghép từ</p>
+                                <p>Ghép từ theo ván</p>
                             </div>
                             <div class="practice-mode-card" onclick="app.selectPracticeMode('speed')">
                                 <i class="fas fa-bolt"></i>
@@ -213,288 +213,14 @@
                             <div class="practice-mode-card" onclick="app.selectPracticeMode('listening')">
                                 <i class="fas fa-headphones"></i>
                                 <h4>Listening Practice</h4>
-                                <p>Luyện nghe</p>
+                                <p>Luyện nghe tùy chỉnh</p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Quiz Mode -->
-                <div class="practice-content" id="quiz-content" style="display: none;">
-                    <div class="practice-header-small">
-                        <h3><i class="fas fa-question-circle"></i> Quiz - Trắc nghiệm</h3>
-                        <button class="btn btn-secondary" onclick="app.backToModeSelector()">
-                            <i class="fas fa-arrow-left"></i> Quay lại
-                        </button>
-                    </div>
-                    
-                    <!-- Lesson Selection -->
-                    <div class="practice-lesson-selector">
-                        <h4><i class="fas fa-check-square"></i> Chọn bài học để luyện tập:</h4>
-                        <div class="practice-lesson-checkboxes" id="quizLessonCheckboxes">
-                            <!-- Checkboxes will be populated by JavaScript -->
-                        </div>
-                        <div class="practice-select-controls">
-                            <button type="button" class="btn btn-small btn-secondary" onclick="app.selectAllPracticeLessons('quiz')">
-                                <i class="fas fa-check-double"></i> Chọn tất cả
-                            </button>
-                            <button type="button" class="btn btn-small btn-secondary" onclick="app.deselectAllPracticeLessons('quiz')">
-                                <i class="fas fa-times"></i> Bỏ chọn tất cả
-                            </button>
-                        </div>
-                        <div class="selected-practice-info" id="quizSelectedInfo">
-                            <i class="fas fa-info-circle"></i> Chưa chọn bài học nào
-                        </div>
-                    </div>
-                    
-                    <div class="quiz-settings">
-                        <label>
-                            Số câu hỏi:
-                            <select id="quizLength">
-                                <option value="5">5 câu</option>
-                                <option value="10" selected>10 câu</option>
-                                <option value="15">15 câu</option>
-                                <option value="20">20 câu</option>
-                            </select>
-                        </label>
-                        <label>
-                            Chế độ:
-                            <select id="quizMode">
-                                <option value="en-to-vi">Anh → Việt</option>
-                                <option value="vi-to-en">Việt → Anh</option>
-                                <option value="mixed">Hỗn hợp</option>
-                            </select>
-                        </label>
-                    </div>
-                    <div id="quizContent">
-                        <div class="quiz-start">
-                            <p>Sẵn sàng kiểm tra kiến thức từ vựng của bạn?</p>
-                            <button id="startQuiz" class="btn btn-primary">
-                                <i class="fas fa-play"></i> Bắt đầu Quiz
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Flashcards Mode -->
-                <div class="practice-content" id="flashcards-content" style="display: none;">
-                    <div class="practice-header-small">
-                        <h3><i class="fas fa-clone"></i> Flashcards - Lật thẻ từ vựng</h3>
-                        <button class="btn btn-secondary" onclick="app.backToModeSelector()">
-                            <i class="fas fa-arrow-left"></i> Quay lại
-                        </button>
-                    </div>
-                    
-                    <!-- Lesson Selection -->
-                    <div class="practice-lesson-selector">
-                        <h4><i class="fas fa-check-square"></i> Chọn bài học để luyện tập:</h4>
-                        <div class="practice-lesson-checkboxes" id="flashcardsLessonCheckboxes">
-                            <!-- Checkboxes will be populated by JavaScript -->
-                        </div>
-                        <div class="practice-select-controls">
-                            <button type="button" class="btn btn-small btn-secondary" onclick="app.selectAllPracticeLessons('flashcards')">
-                                <i class="fas fa-check-double"></i> Chọn tất cả
-                            </button>
-                            <button type="button" class="btn btn-small btn-secondary" onclick="app.deselectAllPracticeLessons('flashcards')">
-                                <i class="fas fa-times"></i> Bỏ chọn tất cả
-                            </button>
-                        </div>
-                        <div class="selected-practice-info" id="flashcardsSelectedInfo">
-                            <i class="fas fa-info-circle"></i> Chưa chọn bài học nào
-                        </div>
-                    </div>
-                    
-                    <div id="flashcardsContent">
-                        <div class="flashcards-start">
-                            <p>Lật thẻ để học từ vựng một cách hiệu quả!</p>
-                            <button id="startFlashcards" class="btn btn-primary">
-                                <i class="fas fa-play"></i> Bắt đầu Flashcards
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Spelling Test Mode -->
-                <div class="practice-content" id="spelling-content" style="display: none;">
-                    <div class="practice-header-small">
-                        <h3><i class="fas fa-spell-check"></i> Spelling Test - Kiểm tra chính tả</h3>
-                        <button class="btn btn-secondary" onclick="app.backToModeSelector()">
-                            <i class="fas fa-arrow-left"></i> Quay lại
-                        </button>
-                    </div>
-                    
-                    <!-- Lesson Selection -->
-                    <div class="practice-lesson-selector">
-                        <h4><i class="fas fa-check-square"></i> Chọn bài học để luyện tập:</h4>
-                        <div class="practice-lesson-checkboxes" id="spellingLessonCheckboxes">
-                            <!-- Checkboxes will be populated by JavaScript -->
-                        </div>
-                        <div class="practice-select-controls">
-                            <button type="button" class="btn btn-small btn-secondary" onclick="app.selectAllPracticeLessons('spelling')">
-                                <i class="fas fa-check-double"></i> Chọn tất cả
-                            </button>
-                            <button type="button" class="btn btn-small btn-secondary" onclick="app.deselectAllPracticeLessons('spelling')">
-                                <i class="fas fa-times"></i> Bỏ chọn tất cả
-                            </button>
-                        </div>
-                        <div class="selected-practice-info" id="spellingSelectedInfo">
-                            <i class="fas fa-info-circle"></i> Chưa chọn bài học nào
-                        </div>
-                    </div>
-                    
-                    <div class="spelling-settings">
-                        <label>
-                            Số từ kiểm tra:
-                            <select id="spellingLength">
-                                <option value="5">5 từ</option>
-                                <option value="10" selected>10 từ</option>
-                                <option value="15">15 từ</option>
-                            </select>
-                        </label>
-                    </div>
-                    <div id="spellingContent">
-                        <div class="spelling-start">
-                            <p>Nghe và viết đúng từ vựng!</p>
-                            <button id="startSpelling" class="btn btn-primary">
-                                <i class="fas fa-play"></i> Bắt đầu Spelling Test
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Matching Game Mode -->
-                <div class="practice-content" id="matching-content" style="display: none;">
-                    <div class="practice-header-small">
-                        <h3><i class="fas fa-puzzle-piece"></i> Matching Game - Trò chơi ghép từ</h3>
-                        <button class="btn btn-secondary" onclick="app.backToModeSelector()">
-                            <i class="fas fa-arrow-left"></i> Quay lại
-                        </button>
-                    </div>
-                    
-                    <!-- Lesson Selection -->
-                    <div class="practice-lesson-selector">
-                        <h4><i class="fas fa-check-square"></i> Chọn bài học để luyện tập:</h4>
-                        <div class="practice-lesson-checkboxes" id="matchingLessonCheckboxes">
-                            <!-- Checkboxes will be populated by JavaScript -->
-                        </div>
-                        <div class="practice-select-controls">
-                            <button type="button" class="btn btn-small btn-secondary" onclick="app.selectAllPracticeLessons('matching')">
-                                <i class="fas fa-check-double"></i> Chọn tất cả
-                            </button>
-                            <button type="button" class="btn btn-small btn-secondary" onclick="app.deselectAllPracticeLessons('matching')">
-                                <i class="fas fa-times"></i> Bỏ chọn tất cả
-                            </button>
-                        </div>
-                        <div class="selected-practice-info" id="matchingSelectedInfo">
-                            <i class="fas fa-info-circle"></i> Chưa chọn bài học nào
-                        </div>
-                    </div>
-                    
-                    <div id="matchingContent">
-                        <div class="matching-start">
-                            <p>Ghép từ tiếng Anh với nghĩa tiếng Việt!</p>
-                            <button id="startMatching" class="btn btn-primary">
-                                <i class="fas fa-play"></i> Bắt đầu Matching Game
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Speed Challenge Mode -->
-                <div class="practice-content" id="speed-content" style="display: none;">
-                    <div class="practice-header-small">
-                        <h3><i class="fas fa-bolt"></i> Speed Challenge - Thử thách tốc độ</h3>
-                        <button class="btn btn-secondary" onclick="app.backToModeSelector()">
-                            <i class="fas fa-arrow-left"></i> Quay lại
-                        </button>
-                    </div>
-                    
-                    <!-- Lesson Selection -->
-                    <div class="practice-lesson-selector">
-                        <h4><i class="fas fa-check-square"></i> Chọn bài học để luyện tập:</h4>
-                        <div class="practice-lesson-checkboxes" id="speedLessonCheckboxes">
-                            <!-- Checkboxes will be populated by JavaScript -->
-                        </div>
-                        <div class="practice-select-controls">
-                            <button type="button" class="btn btn-small btn-secondary" onclick="app.selectAllPracticeLessons('speed')">
-                                <i class="fas fa-check-double"></i> Chọn tất cả
-                            </button>
-                            <button type="button" class="btn btn-small btn-secondary" onclick="app.deselectAllPracticeLessons('speed')">
-                                <i class="fas fa-times"></i> Bỏ chọn tất cả
-                            </button>
-                        </div>
-                        <div class="selected-practice-info" id="speedSelectedInfo">
-                            <i class="fas fa-info-circle"></i> Chưa chọn bài học nào
-                        </div>
-                    </div>
-                    
-                    <div class="speed-settings">
-                        <label>
-                            Thời gian:
-                            <select id="speedTime">
-                                <option value="30">30 giây</option>
-                                <option value="60" selected>60 giây</option>
-                                <option value="120">2 phút</option>
-                            </select>
-                        </label>
-                    </div>
-                    <div id="speedContent">
-                        <div class="speed-start">
-                            <p>Trả lời nhanh nhất có thể trong thời gian cho phép!</p>
-                            <button id="startSpeed" class="btn btn-primary">
-                                <i class="fas fa-play"></i> Bắt đầu Speed Challenge
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Listening Practice Mode -->
-                <div class="practice-content" id="listening-content" style="display: none;">
-                    <div class="practice-header-small">
-                        <h3><i class="fas fa-headphones"></i> Listening Practice - Luyện nghe</h3>
-                        <button class="btn btn-secondary" onclick="app.backToModeSelector()">
-                            <i class="fas fa-arrow-left"></i> Quay lại
-                        </button>
-                    </div>
-                    
-                    <!-- Lesson Selection -->
-                    <div class="practice-lesson-selector">
-                        <h4><i class="fas fa-check-square"></i> Chọn bài học để luyện tập:</h4>
-                        <div class="practice-lesson-checkboxes" id="listeningLessonCheckboxes">
-                            <!-- Checkboxes will be populated by JavaScript -->
-                        </div>
-                        <div class="practice-select-controls">
-                            <button type="button" class="btn btn-small btn-secondary" onclick="app.selectAllPracticeLessons('listening')">
-                                <i class="fas fa-check-double"></i> Chọn tất cả
-                            </button>
-                            <button type="button" class="btn btn-small btn-secondary" onclick="app.deselectAllPracticeLessons('listening')">
-                                <i class="fas fa-times"></i> Bỏ chọn tất cả
-                            </button>
-                        </div>
-                        <div class="selected-practice-info" id="listeningSelectedInfo">
-                            <i class="fas fa-info-circle"></i> Chưa chọn bài học nào
-                        </div>
-                    </div>
-                    
-                    <div class="listening-settings">
-                        <label>
-                            Số từ luyện nghe:
-                            <select id="listeningLength">
-                                <option value="5">5 từ</option>
-                                <option value="10" selected>10 từ</option>
-                                <option value="15">15 từ</option>
-                            </select>
-                        </label>
-                    </div>
-                    <div id="listeningContent">
-                        <div class="listening-start">
-                            <p>Nghe và chọn nghĩa đúng của từ!</p>
-                            <button id="startListening" class="btn btn-primary">
-                                <i class="fas fa-play"></i> Bắt đầu Listening Practice
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <!-- Dynamic Practice Content -->
+                <div id="practiceContainer" style="display: none;"></div>
             </div>
         </div>
 
@@ -547,5 +273,104 @@
     </div>
 
     <script src="script.js"></script>
+    <script>
+        // Global app variable for onclick events
+        let app = null;
+        
+        // Initialize app when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM loaded, initializing app...');
+            app = new VocabularyApp();
+            console.log('App initialized:', app);
+            
+            // Wait a bit for app to fully initialize
+            setTimeout(() => {
+                setupEventListeners();
+            }, 100);
+        });
+        
+        function setupEventListeners() {
+            console.log('Setting up event listeners...');
+            
+            // Setup tab navigation
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tabName = this.getAttribute('data-tab');
+                    if (app && app.switchTab) {
+                        app.switchTab(tabName);
+                    }
+                });
+            });
+            
+            // Setup form submissions
+            const addWordForm = document.getElementById('addWordForm');
+            if (addWordForm) {
+                addWordForm.addEventListener('submit', (e) => {
+                    if (app && app.addWord) app.addWord(e);
+                });
+            }
+            
+            const addLessonForm = document.getElementById('addLessonForm');
+            if (addLessonForm) {
+                addLessonForm.addEventListener('submit', (e) => {
+                    if (app && app.addLesson) app.addLesson(e);
+                });
+            }
+            
+            // Setup review controls
+            const startReview = document.getElementById('startReview');
+            if (startReview) {
+                startReview.addEventListener('click', () => {
+                    if (app && app.startReview) app.startReview();
+                });
+            }
+            
+            const shuffleReview = document.getElementById('shuffleReview');
+            if (shuffleReview) {
+                shuffleReview.addEventListener('click', () => {
+                    if (app && app.shuffleReview) app.shuffleReview();
+                });
+            }
+            
+            // Setup modal actions
+            const confirmDelete = document.getElementById('confirmDelete');
+            if (confirmDelete) {
+                confirmDelete.addEventListener('click', () => {
+                    if (app && app.confirmDelete) app.confirmDelete();
+                });
+            }
+            
+            const cancelDelete = document.getElementById('cancelDelete');
+            if (cancelDelete) {
+                cancelDelete.addEventListener('click', () => {
+                    if (app && app.hideModal) app.hideModal();
+                });
+            }
+            
+            // Setup search and filter
+            const searchWord = document.getElementById('searchWord');
+            if (searchWord) {
+                searchWord.addEventListener('input', () => {
+                    if (app && app.renderWordsList) app.renderWordsList();
+                });
+            }
+            
+            const filterLesson = document.getElementById('filterLesson');
+            if (filterLesson) {
+                filterLesson.addEventListener('change', () => {
+                    if (app && app.renderWordsList) app.renderWordsList();
+                });
+            }
+            
+            const filterCategory = document.getElementById('filterCategory');
+            if (filterCategory) {
+                filterCategory.addEventListener('change', () => {
+                    if (app && app.renderWordsList) app.renderWordsList();
+                });
+            }
+            
+            console.log('Event listeners setup complete');
+        }
+    </script>
 </body>
 </html> 
