@@ -1,83 +1,81 @@
-// IndexedDB Storage Manager for Vocabulary App
-// Provides much better storage capacity and features than localStorage
-
+/**
+ * IndexedDB Storage System for Vocabulary App
+ * Provides high-performance, large-capacity storage with backup capabilities
+ */
 class IndexedDBStorage {
     constructor() {
         this.dbName = 'VocabularyAppDB';
         this.dbVersion = 1;
         this.db = null;
         
-        // Object stores (tables)
         this.stores = {
             words: 'words',
-            lessons: 'lessons', 
+            lessons: 'lessons',
             progress: 'progress',
             settings: 'settings',
             backups: 'backups'
         };
     }
 
-    // Initialize database
     async init() {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open(this.dbName, this.dbVersion);
             
-            request.onerror = () => {
-                console.error('IndexedDB failed to open:', request.error);
-                reject(request.error);
-            };
-            
+            request.onerror = () => reject(request.error);
             request.onsuccess = () => {
                 this.db = request.result;
-                console.log('IndexedDB opened successfully');
-                resolve(this.db);
+                console.log('✅ IndexedDB initialized successfully');
+                resolve();
             };
             
             request.onupgradeneeded = (event) => {
-                const db = event.target.result;
-                
-                // Create words store
-                if (!db.objectStoreNames.contains(this.stores.words)) {
-                    const wordsStore = db.createObjectStore(this.stores.words, { keyPath: 'id' });
-                    wordsStore.createIndex('lessonId', 'lessonId', { unique: false });
-                    wordsStore.createIndex('category', 'category', { unique: false });
-                    wordsStore.createIndex('english', 'english', { unique: false });
-                    wordsStore.createIndex('addedDate', 'addedDate', { unique: false });
-                }
-                
-                // Create lessons store
-                if (!db.objectStoreNames.contains(this.stores.lessons)) {
-                    const lessonsStore = db.createObjectStore(this.stores.lessons, { keyPath: 'id' });
-                    lessonsStore.createIndex('name', 'name', { unique: false });
-                    lessonsStore.createIndex('createdDate', 'createdDate', { unique: false });
-                }
-                
-                // Create progress store
-                if (!db.objectStoreNames.contains(this.stores.progress)) {
-                    db.createObjectStore(this.stores.progress, { keyPath: 'type' });
-                }
-                
-                // Create settings store
-                if (!db.objectStoreNames.contains(this.stores.settings)) {
-                    db.createObjectStore(this.stores.settings, { keyPath: 'key' });
-                }
-                
-                // Create backups store
-                if (!db.objectStoreNames.contains(this.stores.backups)) {
-                    const backupsStore = db.createObjectStore(this.stores.backups, { keyPath: 'id', autoIncrement: true });
-                    backupsStore.createIndex('timestamp', 'timestamp', { unique: false });
-                }
-                
-                console.log('IndexedDB schema created/updated');
+                this.db = event.target.result;
+                this.createObjectStores();
+                console.log('📦 IndexedDB object stores created');
             };
         });
     }
 
-    // Generic method to perform transactions
-    async performTransaction(storeName, mode, operation) {
-        if (!this.db) {
-            throw new Error('Database not initialized. Call init() first.');
+    createObjectStores() {
+        // Words store
+        if (!this.db.objectStoreNames.contains(this.stores.words)) {
+            const wordsStore = this.db.createObjectStore(this.stores.words, { keyPath: 'id' });
+            wordsStore.createIndex('english', 'english', { unique: false });
+            wordsStore.createIndex('vietnamese', 'vietnamese', { unique: false });
+            wordsStore.createIndex('lessonId', 'lessonId', { unique: false });
+            wordsStore.createIndex('category', 'category', { unique: false });
+            wordsStore.createIndex('addedDate', 'addedDate', { unique: false });
         }
+
+        // Lessons store
+        if (!this.db.objectStoreNames.contains(this.stores.lessons)) {
+            const lessonsStore = this.db.createObjectStore(this.stores.lessons, { keyPath: 'id' });
+            lessonsStore.createIndex('name', 'name', { unique: false });
+            lessonsStore.createIndex('createdDate', 'createdDate', { unique: false });
+        }
+
+        // Progress store
+        if (!this.db.objectStoreNames.contains(this.stores.progress)) {
+            this.db.createObjectStore(this.stores.progress, { keyPath: 'type' });
+        }
+
+        // Settings store
+        if (!this.db.objectStoreNames.contains(this.stores.settings)) {
+            this.db.createObjectStore(this.stores.settings, { keyPath: 'key' });
+        }
+
+        // Backups store
+        if (!this.db.objectStoreNames.contains(this.stores.backups)) {
+            const backupsStore = this.db.createObjectStore(this.stores.backups, { 
+                keyPath: 'id', 
+                autoIncrement: true 
+            });
+            backupsStore.createIndex('timestamp', 'timestamp', { unique: false });
+        }
+    }
+
+    async performTransaction(storeName, mode, operation) {
+        if (!this.db) throw new Error('Database not initialized');
         
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction([storeName], mode);
@@ -167,12 +165,6 @@ class IndexedDBStorage {
         });
     }
 
-    async getLesson(id) {
-        return this.performTransaction(this.stores.lessons, 'readonly', (store) => {
-            return store.get(id);
-        });
-    }
-
     async getAllLessons() {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction([this.stores.lessons], 'readonly');
@@ -203,10 +195,7 @@ class IndexedDBStorage {
             const store = transaction.objectStore(this.stores.progress);
             const request = store.get(type);
             
-            request.onsuccess = () => {
-                const result = request.result;
-                resolve(result ? result.data : null);
-            };
+            request.onsuccess = () => resolve(request.result?.data || null);
             request.onerror = () => reject(request.error);
         });
     }
@@ -230,10 +219,7 @@ class IndexedDBStorage {
             const store = transaction.objectStore(this.stores.settings);
             const request = store.get(key);
             
-            request.onsuccess = () => {
-                const result = request.result;
-                resolve(result ? result.value : null);
-            };
+            request.onsuccess = () => resolve(request.result?.value || null);
             request.onerror = () => reject(request.error);
         });
     }
@@ -245,9 +231,8 @@ class IndexedDBStorage {
             const request = store.getAll();
             
             request.onsuccess = () => {
-                const results = request.result;
                 const settings = {};
-                results.forEach(item => {
+                request.result.forEach(item => {
                     settings[item.key] = item.value;
                 });
                 resolve(settings);
@@ -292,7 +277,53 @@ class IndexedDBStorage {
         });
     }
 
-    // Import/Export operations
+    async restoreFromBackup(backupId) {
+        const backup = await this.getBackup(backupId);
+        if (!backup) throw new Error('Backup not found');
+        
+        // Clear existing data
+        await this.clearAllData();
+        
+        // Restore data
+        const { words, lessons, progress, settings } = backup.data;
+        
+        if (words) {
+            for (const word of words) {
+                await this.addWord(word);
+            }
+        }
+        
+        if (lessons) {
+            for (const lesson of lessons) {
+                await this.addLesson(lesson);
+            }
+        }
+        
+        if (progress) {
+            await this.saveProgress('quiz', progress);
+        }
+        
+        if (settings) {
+            for (const [key, value] of Object.entries(settings)) {
+                await this.saveSetting(key, value);
+            }
+        }
+        
+        return true;
+    }
+
+    async getBackup(id) {
+        return new Promise((resolve, reject) => {
+            const transaction = this.db.transaction([this.stores.backups], 'readonly');
+            const store = transaction.objectStore(this.stores.backups);
+            const request = store.get(id);
+            
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    // Export/Import operations
     async exportAllData() {
         return {
             words: await this.getAllWords(),
@@ -300,117 +331,49 @@ class IndexedDBStorage {
             progress: await this.getProgress('quiz'),
             settings: await this.getAllSettings(),
             exportDate: new Date().toISOString(),
-            version: this.dbVersion
+            storageType: 'IndexedDB'
         };
     }
 
     async importData(data) {
-        // Clear existing data first
-        await this.clearAllData();
+        // Create backup before import
+        await this.createBackup('Before import - ' + new Date().toLocaleString());
         
-        // Import lessons first (words depend on lessons)
-        if (data.lessons && Array.isArray(data.lessons)) {
-            for (const lesson of data.lessons) {
-                await this.addLesson(lesson);
-            }
-        }
-        
-        // Import words
-        if (data.words && Array.isArray(data.words)) {
+        if (data.words) {
             for (const word of data.words) {
-                await this.addWord(word);
+                await this.updateWord(word); // Use update to handle duplicates
             }
         }
         
-        // Import progress
+        if (data.lessons) {
+            for (const lesson of data.lessons) {
+                await this.updateLesson(lesson);
+            }
+        }
+        
         if (data.progress) {
             await this.saveProgress('quiz', data.progress);
         }
         
-        // Import settings
         if (data.settings) {
             for (const [key, value] of Object.entries(data.settings)) {
                 await this.saveSetting(key, value);
             }
         }
         
-        console.log('Data import completed successfully');
-    }
-
-    // Migration from localStorage
-    async migrateFromLocalStorage() {
-        console.log('Starting migration from localStorage to IndexedDB...');
-        
-        try {
-            // Get data from localStorage
-            const wordsData = localStorage.getItem('vocabularyWords');
-            const lessonsData = localStorage.getItem('vocabularyLessons');
-            const progressData = localStorage.getItem('quizProgress');
-            const currentLessonId = localStorage.getItem('currentLessonId');
-            const practiceLessonsData = localStorage.getItem('selectedPracticeLessons');
-            
-            // Import lessons
-            if (lessonsData) {
-                const lessons = JSON.parse(lessonsData);
-                for (const lesson of lessons) {
-                    await this.addLesson(lesson);
-                }
-                console.log(`Migrated ${lessons.length} lessons`);
-            }
-            
-            // Import words
-            if (wordsData) {
-                const words = JSON.parse(wordsData);
-                for (const word of words) {
-                    await this.addWord(word);
-                }
-                console.log(`Migrated ${words.length} words`);
-            }
-            
-            // Import progress
-            if (progressData) {
-                const progress = JSON.parse(progressData);
-                await this.saveProgress('quiz', progress);
-                console.log('Migrated quiz progress');
-            }
-            
-            // Import settings
-            if (currentLessonId) {
-                await this.saveSetting('currentLessonId', currentLessonId);
-            }
-            
-            if (practiceLessonsData) {
-                const practiceLessons = JSON.parse(practiceLessonsData);
-                await this.saveSetting('selectedPracticeLessons', practiceLessons);
-            }
-            
-            // Create backup of localStorage data before clearing
-            await this.createBackup('Migration from localStorage');
-            
-            console.log('Migration completed successfully!');
-            return true;
-            
-        } catch (error) {
-            console.error('Migration failed:', error);
-            throw error;
-        }
+        return true;
     }
 
     // Utility methods
     async clearAllData() {
         const stores = Object.values(this.stores);
         for (const storeName of stores) {
-            await this.performTransaction(storeName, 'readwrite', (store) => {
-                return store.clear();
-            });
+            if (storeName !== this.stores.backups) { // Keep backups
+                await this.performTransaction(storeName, 'readwrite', (store) => {
+                    return store.clear();
+                });
+            }
         }
-    }
-
-    async getStorageUsage() {
-        if ('storage' in navigator && 'estimate' in navigator.storage) {
-            return await navigator.storage.estimate();
-        }
-        return null;
     }
 
     async getDataStats() {
@@ -428,6 +391,24 @@ class IndexedDBStorage {
         };
     }
 
+    async getStorageUsage() {
+        if ('storage' in navigator && 'estimate' in navigator.storage) {
+            const estimate = await navigator.storage.estimate();
+            return {
+                usedBytes: estimate.usage || 0,
+                availableBytes: estimate.quota || 0,
+                usagePercentage: estimate.usage && estimate.quota ? 
+                    (estimate.usage / estimate.quota * 100).toFixed(2) + '%' : 'Unknown'
+            };
+        }
+        return { usedBytes: 0, availableBytes: 0, usagePercentage: 'Unknown' };
+    }
+
+    // Check if IndexedDB is supported
+    static isSupported() {
+        return 'indexedDB' in window;
+    }
+
     // Close database connection
     close() {
         if (this.db) {
@@ -437,7 +418,7 @@ class IndexedDBStorage {
     }
 }
 
-// Export for use in modules
+// Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = IndexedDBStorage;
 } else if (typeof window !== 'undefined') {

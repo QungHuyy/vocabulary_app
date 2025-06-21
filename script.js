@@ -854,12 +854,24 @@ class VocabularyApp {
         document.getElementById('accuracy').textContent = accuracy + '%';
     }
 
-    saveToStorage() {
-        localStorage.setItem('vocabularyWords', JSON.stringify(this.words));
-        localStorage.setItem('vocabularyLessons', JSON.stringify(this.lessons));
-        localStorage.setItem('currentLessonId', this.currentLessonId || '');
-        localStorage.setItem('quizProgress', JSON.stringify(this.quizProgress));
-        localStorage.setItem('selectedPracticeLessons', JSON.stringify(this.selectedPracticeLessons));
+    async saveToStorage() {
+        if (this.storage) {
+            // Use IndexedDB via StorageAdapter
+            await this.storage.saveAll({
+                words: this.words,
+                lessons: this.lessons,
+                currentLessonId: this.currentLessonId,
+                progress: this.quizProgress,
+                selectedPracticeLessons: this.selectedPracticeLessons
+            });
+        } else {
+            // Fallback to localStorage
+            localStorage.setItem('vocabularyWords', JSON.stringify(this.words));
+            localStorage.setItem('vocabularyLessons', JSON.stringify(this.lessons));
+            localStorage.setItem('currentLessonId', this.currentLessonId || '');
+            localStorage.setItem('quizProgress', JSON.stringify(this.quizProgress));
+            localStorage.setItem('selectedPracticeLessons', JSON.stringify(this.selectedPracticeLessons));
+        }
     }
 
     showMessage(message, type) {
@@ -2610,61 +2622,418 @@ class VocabularyApp {
             this.selectedPracticeLessons[mode].includes(word.lessonId)
         );
     }
-}
 
-// Initialize app when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    window.app = new VocabularyApp();
-});
-
-// Export and Import functions
-function exportData() {
-    const data = {
-        words: app.words,
-        lessons: app.lessons,
-        progress: app.quizProgress,
-        exportDate: new Date().toISOString()
-    };
-    
-    const dataStr = JSON.stringify(data, null, 2);
-    const dataBlob = new Blob([dataStr], {type: 'application/json'});
-    
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(dataBlob);
-    link.download = `vocabulary_backup_${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-}
-
-function importData(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = function(e) {
+    // Additional methods for onclick handlers - localStorage version
+    async createManualBackup() {
         try {
-            const data = JSON.parse(e.target.result);
+            const data = {
+                lessons: this.lessons,
+                words: this.words,
+                exportDate: new Date().toISOString()
+            };
             
-            if (data.words && Array.isArray(data.words)) {
-                app.words = data.words;
-                if (data.lessons) {
-                    app.lessons = data.lessons;
-                }
-                if (data.progress) {
-                    app.quizProgress = data.progress;
-                }
-                
-                app.saveToStorage();
-                app.updateStats();
-                app.renderWordsList();
-                app.renderLessonsList();
-                app.updateLessonSelectors();
-                app.showMessage('Đã nhập dữ liệu thành công!', 'success');
-            } else {
-                app.showMessage('File không đúng định dạng!', 'error');
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `vocabulary-backup-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            this.showMessage('Tạo backup thành công!', 'success');
+        } catch (error) {
+            this.showMessage('Lỗi tạo backup: ' + error.message, 'error');
+        }
+    }
+
+    async exportData() {
+        return this.createManualBackup(); // Same as backup for localStorage
+    }
+
+    async importData(event) {
+        try {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const text = await file.text();
+            const data = JSON.parse(text);
+            
+            if (!data.lessons || !data.words) {
+                throw new Error('File không đúng định dạng');
+            }
+            
+            const confirmImport = confirm('Nhập dữ liệu sẽ ghi đè lên dữ liệu hiện tại. Bạn có chắc chắn?');
+            if (!confirmImport) return;
+            
+            this.lessons = data.lessons;
+            this.words = data.words;
+            await this.saveToStorage();
+            
+            this.updateStats();
+            this.renderWordsList();
+            this.renderLessonsList();
+            this.updateLessonSelectors();
+            this.updateCurrentLessonDisplay();
+            
+            this.showMessage('Nhập dữ liệu thành công!', 'success');
+        } catch (error) {
+            this.showMessage('Lỗi nhập dữ liệu: ' + error.message, 'error');
+        }
+    }
+
+    async checkMigrationStatus() {
+        try {
+            const statusEl = document.getElementById('migrationStatusDisplay');
+            if (statusEl) {
+                statusEl.innerHTML = `
+                    <h4>Trạng thái Migration:</h4>
+                    <p><strong>Loại storage:</strong> localStorage</p>
+                    <p><strong>Số từ vựng:</strong> ${this.words?.length || 0}</p>
+                    <p><strong>Số bài học:</strong> ${this.lessons?.length || 0}</p>
+                    <p><strong>Dung lượng:</strong> ~${Math.round(JSON.stringify(this.words).length / 1024)} KB</p>
+                `;
             }
         } catch (error) {
-            app.showMessage('Lỗi khi đọc file!', 'error');
+            this.showMessage('Lỗi kiểm tra trạng thái: ' + error.message, 'error');
         }
-    };
-    reader.readAsText(file);
+    }
+
+    async verifyMigration() {
+        try {
+            let hasIssues = false;
+            const issues = [];
+            
+            // Check data integrity
+            if (!this.lessons || this.lessons.length === 0) {
+                issues.push('Không có bài học nào');
+            }
+            
+            if (!this.words || this.words.length === 0) {
+                issues.push('Không có từ vựng nào');
+            }
+            
+            // Check word-lesson relationships
+            for (const word of this.words) {
+                if (!this.lessons.find(l => l.id === word.lessonId)) {
+                    issues.push(`Từ "${word.english}" không thuộc bài học nào hợp lệ`);
+                    hasIssues = true;
+                }
+            }
+            
+            const statusEl = document.getElementById('migrationStatusDisplay');
+            if (statusEl) {
+                if (hasIssues || issues.length > 0) {
+                    statusEl.innerHTML = `
+                        <h4>Kết quả xác minh:</h4>
+                        <div style="color: #f44336;">
+                            <p><strong>❌ Phát hiện vấn đề:</strong></p>
+                            <ul>${issues.map(issue => `<li>${issue}</li>`).join('')}</ul>
+                        </div>
+                    `;
+                } else {
+                    statusEl.innerHTML = `
+                        <h4>Kết quả xác minh:</h4>
+                        <div style="color: #4CAF50;">
+                            <p><strong>✅ Dữ liệu hoàn hảo!</strong></p>
+                            <p>Tất cả dữ liệu đều nhất quán và hợp lệ.</p>
+                        </div>
+                    `;
+                }
+            }
+            
+        } catch (error) {
+            this.showMessage('Lỗi xác minh: ' + error.message, 'error');
+        }
+    }
+
+    // Backup methods that don't exist for localStorage
+    async createBackup(description) {
+        throw new Error('Backup chỉ có với IndexedDB. Vui lòng dùng "Tạo sao lưu ngay" thay thế.');
+    }
+
+    async restoreFromBackup(backupId) {
+        this.showMessage('Backup chỉ có với IndexedDB', 'error');
+    }
+
+    async deleteBackup(backupId) {
+        this.showMessage('Backup chỉ có với IndexedDB', 'error');
+    }
+}
+
+// Extended VocabularyApp class with IndexedDB support
+class VocabularyAppIndexedDB extends VocabularyApp {
+    constructor() {
+        // Initialize basic properties first
+        super();
+        
+        // Override with storage adapter
+        if (typeof StorageAdapter !== 'undefined') {
+            this.storage = new StorageAdapter();
+        } else {
+            console.warn('StorageAdapter not available, falling back to localStorage');
+            this.storage = null;
+        }
+    }
+
+    async init() {
+        try {
+            if (this.storage) {
+                // Initialize storage and load data
+                await this.storage.init();
+                await this.loadData();
+            } else {
+                // Fallback to parent init
+                return super.init();
+            }
+            
+            this.setupEventListeners();
+            this.updateStats();
+            this.renderWordsList();
+            this.renderLessonsList();
+            this.updateLessonSelectors();
+            this.updateCurrentLessonDisplay();
+            this.renderReviewLessonCheckboxes();
+            
+            // Load voices for speech synthesis
+            this.loadVoices();
+            
+            // Initialize autocomplete and translation
+            this.initializeCommonWords();
+            this.setupAutocomplete();
+            this.setupTranslation();
+            
+            // Load sample data if no lessons exist
+            if (this.lessons.length === 0) {
+                await this.loadSampleData();
+            }
+            
+            console.log('✅ VocabularyAppIndexedDB initialized successfully');
+            
+        } catch (error) {
+            console.error('❌ App initialization failed:', error);
+            this.showMessage('Lỗi khởi tạo ứng dụng: ' + error.message, 'error');
+            throw error;
+        }
+    }
+
+    // Backup and restore methods for IndexedDB
+    async createBackup(description) {
+        if (this.storage && this.storage.createBackup) {
+            return await this.storage.createBackup(description);
+        }
+        throw new Error('Backup chỉ có với IndexedDB');
+    }
+
+    async restoreFromBackup(backupId) {
+        if (this.storage && this.storage.restoreFromBackup) {
+            await this.storage.restoreFromBackup(backupId);
+            // Reload data after restore
+            await this.loadData();
+            this.updateStats();
+            this.renderWordsList();
+            this.renderLessonsList();
+            this.updateLessonSelectors();
+            this.updateCurrentLessonDisplay();
+            this.renderReviewLessonCheckboxes();
+            this.showMessage('Đã khôi phục từ backup thành công!', 'success');
+            return;
+        }
+        throw new Error('Restore chỉ có với IndexedDB');
+    }
+
+    async deleteBackup(backupId) {
+        if (this.storage && this.storage.deleteBackup) {
+            await this.storage.deleteBackup(backupId);
+            // Update backups list in UI
+            if (typeof updateBackupsList === 'function') {
+                await updateBackupsList();
+            }
+            this.showMessage('Đã xóa backup thành công!', 'success');
+            return;
+        }
+        throw new Error('Delete backup chỉ có với IndexedDB');
+    }
+
+
+
+    async loadData() {
+        try {
+            // Load all data from storage
+            this.lessons = await this.storage.getAllLessons();
+            this.words = await this.storage.getAllWords();
+            this.quizProgress = await this.storage.getProgress();
+            this.currentLessonId = await this.storage.getSetting('currentLessonId');
+            
+            // Load practice lesson selections
+            const savedPracticeLessons = await this.storage.getSetting('selectedPracticeLessons');
+            if (savedPracticeLessons) {
+                this.selectedPracticeLessons = typeof savedPracticeLessons === 'string' 
+                    ? JSON.parse(savedPracticeLessons) 
+                    : savedPracticeLessons;
+            } else if (this.lessons.length > 0) {
+                // Initialize with all lessons selected
+                const allLessonIds = this.lessons.map(lesson => lesson.id);
+                this.selectedPracticeLessons = {
+                    quiz: [...allLessonIds],
+                    flashcards: [...allLessonIds],
+                    spelling: [...allLessonIds],
+                    matching: [...allLessonIds],
+                    speed: [...allLessonIds],
+                    listening: [...allLessonIds]
+                };
+                await this.saveToStorage();
+            }
+            
+            console.log('✅ Data loaded successfully');
+            
+        } catch (error) {
+            console.error('Error loading data:', error);
+            // Don't throw, just use empty arrays
+            this.lessons = this.lessons || [];
+            this.words = this.words || [];
+            this.quizProgress = this.quizProgress || {
+                totalQuestions: 0,
+                correctAnswers: 0,
+                totalWords: 0,
+                learnedWords: []
+            };
+        }
+    }
+
+    // Backup and management methods
+    async createManualBackup() {
+        try {
+            const description = prompt('Nhập mô tả cho bản sao lưu (tùy chọn):') || 'Sao lưu thủ công';
+            const backupId = await this.storage.createBackup(description);
+            this.showMessage('Tạo sao lưu thành công!', 'success');
+            
+            // Update backups list if on backup tab
+            if (typeof updateBackupsList === 'function') {
+                updateBackupsList();
+            }
+            
+            return backupId;
+        } catch (error) {
+            console.error('Backup creation failed:', error);
+            this.showMessage('Lỗi tạo sao lưu: ' + error.message, 'error');
+        }
+    }
+
+    async restoreFromBackup(backupId) {
+        try {
+            const confirmed = confirm('Bạn có chắc chắn muốn khôi phục từ bản sao lưu này? Dữ liệu hiện tại sẽ bị ghi đè.');
+            if (!confirmed) return;
+
+            await this.storage.indexedDBStorage.restoreFromBackup(backupId);
+            
+            // Reload data
+            await this.loadData();
+            this.updateStats();
+            this.renderWordsList();
+            this.renderLessonsList();
+            this.updateLessonSelectors();
+            this.updateCurrentLessonDisplay();
+            this.renderReviewLessonCheckboxes();
+            
+            this.showMessage('Khôi phục dữ liệu thành công!', 'success');
+            
+        } catch (error) {
+            console.error('Restore failed:', error);
+            this.showMessage('Lỗi khôi phục: ' + error.message, 'error');
+        }
+    }
+
+    async deleteBackup(backupId) {
+        try {
+            const confirmed = confirm('Bạn có chắc chắn muốn xóa bản sao lưu này?');
+            if (!confirmed) return;
+
+            await this.storage.indexedDBStorage.deleteBackup(backupId);
+            this.showMessage('Xóa sao lưu thành công!', 'success');
+            
+            // Update backups list
+            if (typeof updateBackupsList === 'function') {
+                updateBackupsList();
+            }
+            
+        } catch (error) {
+            console.error('Delete backup failed:', error);
+            this.showMessage('Lỗi xóa sao lưu: ' + error.message, 'error');
+        }
+    }
+
+    async exportData() {
+        try {
+            const data = await this.storage.exportData();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `vocabulary-export-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showMessage('Xuất dữ liệu thành công!', 'success');
+            
+        } catch (error) {
+            console.error('Export failed:', error);
+            this.showMessage('Lỗi xuất dữ liệu: ' + error.message, 'error');
+        }
+    }
+
+    async checkMigrationStatus() {
+        try {
+            const status = this.storage.getMigrationStatus();
+            const verification = await this.storage.verifyMigration();
+            
+            const statusDisplay = document.getElementById('migrationStatusDisplay');
+            if (statusDisplay) {
+                statusDisplay.innerHTML = `
+                    <h4>Trạng thái Migration:</h4>
+                    <div class="status-item">
+                        <span>Hoàn thành:</span>
+                        <span class="${status?.completed ? 'success' : 'warning'}">${status?.completed ? 'Có' : 'Không'}</span>
+                    </div>
+                    <div class="status-item">
+                        <span>Tiến độ:</span>
+                        <span>${status?.progress || 0}%</span>
+                    </div>
+                    <div class="status-item">
+                        <span>Xác minh dữ liệu:</span>
+                        <span class="${verification?.success ? 'success' : 'error'}">${verification?.success ? 'Thành công' : 'Thất bại'}</span>
+                    </div>
+                    ${status?.errors?.length > 0 ? `
+                    <div class="status-item">
+                        <span>Lỗi:</span>
+                        <span class="error">${status.errors.join(', ')}</span>
+                    </div>
+                    ` : ''}
+                `;
+            }
+            
+        } catch (error) {
+            console.error('Check migration status failed:', error);
+            this.showMessage('Lỗi kiểm tra trạng thái: ' + error.message, 'error');
+        }
+    }
+
+    async verifyMigration() {
+        try {
+            const verification = await this.storage.verifyMigration();
+            
+            if (verification.success) {
+                this.showMessage('Xác minh dữ liệu thành công! Tất cả dữ liệu đã được migration đúng.', 'success');
+            } else {
+                this.showMessage('Xác minh thất bại: ' + (verification.error || 'Dữ liệu không khớp'), 'error');
+                console.log('Verification details:', verification.details);
+            }
+            
+        } catch (error) {
+            console.error('Verification failed:', error);
+            this.showMessage('Lỗi xác minh: ' + error.message, 'error');
+        }
+    }
 } 

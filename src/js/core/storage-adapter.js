@@ -1,102 +1,80 @@
-// Storage Adapter - Unified interface for localStorage and IndexedDB
-// Provides seamless migration and fallback capabilities
-
+/**
+ * Storage Adapter - Unified interface for localStorage and IndexedDB
+ * Provides seamless migration and fallback capabilities
+ */
 class StorageAdapter {
     constructor() {
         this.preferredStorage = 'indexeddb'; // 'localStorage' or 'indexeddb'
         this.currentStorage = null;
         this.indexedDBStorage = null;
         this.isReady = false;
+        this.migration = null;
     }
 
-    // Initialize storage system
     async init() {
-        console.log('Initializing storage system...');
-        
         try {
-            // Try to initialize IndexedDB first
-            if (this.supportsIndexedDB()) {
-                const { IndexedDBStorage } = await import('./indexeddb-storage.js');
+            // Check IndexedDB support
+            if (IndexedDBStorage.isSupported() && this.preferredStorage === 'indexeddb') {
                 this.indexedDBStorage = new IndexedDBStorage();
                 await this.indexedDBStorage.init();
-                this.currentStorage = 'indexeddb';
-                console.log('✅ IndexedDB initialized successfully');
+                
+                // Initialize migration system
+                this.migration = new DataMigration();
+                await this.migration.init();
                 
                 // Check if we need to migrate from localStorage
-                if (this.hasLocalStorageData()) {
-                    console.log('📦 Found localStorage data, starting migration...');
-                    await this.migrateFromLocalStorage();
+                const hasLocalData = this.migration.hasLocalStorageData();
+                const hasIndexedData = await this.migration.hasIndexedDBData();
+                
+                if (hasLocalData && !hasIndexedData) {
+                    console.log('🔄 Auto-migrating data from localStorage to IndexedDB...');
+                    const result = await this.migration.migrate({
+                        createBackup: true,
+                        clearLocalStorage: false // Keep localStorage as backup initially
+                    });
+                    
+                    if (result.success) {
+                        console.log('✅ Auto-migration completed:', result.stats);
+                        // Verify migration
+                        const verification = await this.migration.verifyMigration();
+                        if (verification.success) {
+                            console.log('✅ Migration verification passed');
+                        } else {
+                            console.warn('⚠️ Migration verification failed:', verification);
+                        }
+                    } else {
+                        console.error('❌ Auto-migration failed:', result.message);
+                        throw new Error('Migration failed: ' + result.message);
+                    }
                 }
+                
+                this.currentStorage = 'indexeddb';
+                console.log('✅ Using IndexedDB storage');
+                
             } else {
-                throw new Error('IndexedDB not supported');
-            }
-        } catch (error) {
-            console.warn('❌ IndexedDB failed, falling back to localStorage:', error.message);
-            this.currentStorage = 'localStorage';
-        }
-        
-        this.isReady = true;
-        console.log(`🚀 Storage system ready (using: ${this.currentStorage})`);
-        return this.currentStorage;
-    }
-
-    // Check if IndexedDB is supported
-    supportsIndexedDB() {
-        return 'indexedDB' in window && window.indexedDB !== null;
-    }
-
-    // Check if localStorage has vocabulary data
-    hasLocalStorageData() {
-        return localStorage.getItem('vocabularyWords') || 
-               localStorage.getItem('vocabularyLessons');
-    }
-
-    // Migrate from localStorage to IndexedDB
-    async migrateFromLocalStorage() {
-        if (!this.indexedDBStorage) return false;
-        
-        try {
-            await this.indexedDBStorage.migrateFromLocalStorage();
-            
-            // Ask user if they want to clear localStorage after successful migration
-            const shouldClear = confirm(
-                'Migration thành công! Bạn có muốn xóa dữ liệu cũ trong localStorage không?\n' +
-                '(Khuyến nghị: Chọn OK để tiết kiệm dung lượng)'
-            );
-            
-            if (shouldClear) {
-                this.clearLocalStorage();
-                console.log('✅ localStorage cleared after migration');
+                // Fallback to localStorage
+                this.currentStorage = 'localStorage';
+                console.log('⚠️ Falling back to localStorage');
             }
             
+            this.isReady = true;
             return true;
+            
         } catch (error) {
-            console.error('Migration failed:', error);
-            return false;
+            console.error('Storage initialization failed:', error);
+            // Fallback to localStorage
+            this.currentStorage = 'localStorage';
+            this.isReady = true;
+            console.log('⚠️ Using localStorage fallback due to error');
+            return true;
         }
     }
 
-    // Clear localStorage vocabulary data
-    clearLocalStorage() {
-        const keys = [
-            'vocabularyWords',
-            'vocabularyLessons',
-            'currentLessonId',
-            'quizProgress',
-            'selectedPracticeLessons'
-        ];
-        
-        keys.forEach(key => localStorage.removeItem(key));
-    }
-
-    // Ensure storage is ready
     async ensureReady() {
         if (!this.isReady) {
             await this.init();
         }
     }
-
-    // Unified API methods - automatically route to appropriate storage
 
     // Words operations
     async getAllWords() {
@@ -107,6 +85,48 @@ class StorageAdapter {
         } else {
             const data = localStorage.getItem('vocabularyWords');
             return data ? JSON.parse(data) : [];
+        }
+    }
+
+    async addWord(word) {
+        await this.ensureReady();
+        
+        if (this.currentStorage === 'indexeddb') {
+            return await this.indexedDBStorage.addWord(word);
+        } else {
+            const words = await this.getAllWords();
+            words.push(word);
+            localStorage.setItem('vocabularyWords', JSON.stringify(words));
+            return true;
+        }
+    }
+
+    async updateWord(word) {
+        await this.ensureReady();
+        
+        if (this.currentStorage === 'indexeddb') {
+            return await this.indexedDBStorage.updateWord(word);
+        } else {
+            const words = await this.getAllWords();
+            const index = words.findIndex(w => w.id === word.id);
+            if (index !== -1) {
+                words[index] = word;
+                localStorage.setItem('vocabularyWords', JSON.stringify(words));
+            }
+            return true;
+        }
+    }
+
+    async deleteWord(id) {
+        await this.ensureReady();
+        
+        if (this.currentStorage === 'indexeddb') {
+            return await this.indexedDBStorage.deleteWord(id);
+        } else {
+            const words = await this.getAllWords();
+            const filteredWords = words.filter(w => w.id !== id);
+            localStorage.setItem('vocabularyWords', JSON.stringify(filteredWords));
+            return true;
         }
     }
 
@@ -127,45 +147,6 @@ class StorageAdapter {
         }
     }
 
-    async addWord(word) {
-        await this.ensureReady();
-        
-        if (this.currentStorage === 'indexeddb') {
-            return await this.indexedDBStorage.addWord(word);
-        } else {
-            const words = await this.getAllWords();
-            words.push(word);
-            await this.saveWords(words);
-        }
-    }
-
-    async updateWord(word) {
-        await this.ensureReady();
-        
-        if (this.currentStorage === 'indexeddb') {
-            return await this.indexedDBStorage.updateWord(word);
-        } else {
-            const words = await this.getAllWords();
-            const index = words.findIndex(w => w.id === word.id);
-            if (index !== -1) {
-                words[index] = word;
-                await this.saveWords(words);
-            }
-        }
-    }
-
-    async deleteWord(id) {
-        await this.ensureReady();
-        
-        if (this.currentStorage === 'indexeddb') {
-            return await this.indexedDBStorage.deleteWord(id);
-        } else {
-            const words = await this.getAllWords();
-            const filteredWords = words.filter(w => w.id !== id);
-            await this.saveWords(filteredWords);
-        }
-    }
-
     // Lessons operations
     async getAllLessons() {
         await this.ensureReady();
@@ -175,6 +156,48 @@ class StorageAdapter {
         } else {
             const data = localStorage.getItem('vocabularyLessons');
             return data ? JSON.parse(data) : [];
+        }
+    }
+
+    async addLesson(lesson) {
+        await this.ensureReady();
+        
+        if (this.currentStorage === 'indexeddb') {
+            return await this.indexedDBStorage.addLesson(lesson);
+        } else {
+            const lessons = await this.getAllLessons();
+            lessons.push(lesson);
+            localStorage.setItem('vocabularyLessons', JSON.stringify(lessons));
+            return true;
+        }
+    }
+
+    async updateLesson(lesson) {
+        await this.ensureReady();
+        
+        if (this.currentStorage === 'indexeddb') {
+            return await this.indexedDBStorage.updateLesson(lesson);
+        } else {
+            const lessons = await this.getAllLessons();
+            const index = lessons.findIndex(l => l.id === lesson.id);
+            if (index !== -1) {
+                lessons[index] = lesson;
+                localStorage.setItem('vocabularyLessons', JSON.stringify(lessons));
+            }
+            return true;
+        }
+    }
+
+    async deleteLesson(id) {
+        await this.ensureReady();
+        
+        if (this.currentStorage === 'indexeddb') {
+            return await this.indexedDBStorage.deleteLesson(id);
+        } else {
+            const lessons = await this.getAllLessons();
+            const filteredLessons = lessons.filter(l => l.id !== id);
+            localStorage.setItem('vocabularyLessons', JSON.stringify(filteredLessons));
+            return true;
         }
     }
 
@@ -192,45 +215,6 @@ class StorageAdapter {
             }
         } else {
             localStorage.setItem('vocabularyLessons', JSON.stringify(lessons));
-        }
-    }
-
-    async addLesson(lesson) {
-        await this.ensureReady();
-        
-        if (this.currentStorage === 'indexeddb') {
-            return await this.indexedDBStorage.addLesson(lesson);
-        } else {
-            const lessons = await this.getAllLessons();
-            lessons.push(lesson);
-            await this.saveLessons(lessons);
-        }
-    }
-
-    async updateLesson(lesson) {
-        await this.ensureReady();
-        
-        if (this.currentStorage === 'indexeddb') {
-            return await this.indexedDBStorage.updateLesson(lesson);
-        } else {
-            const lessons = await this.getAllLessons();
-            const index = lessons.findIndex(l => l.id === lesson.id);
-            if (index !== -1) {
-                lessons[index] = lesson;
-                await this.saveLessons(lessons);
-            }
-        }
-    }
-
-    async deleteLesson(id) {
-        await this.ensureReady();
-        
-        if (this.currentStorage === 'indexeddb') {
-            return await this.indexedDBStorage.deleteLesson(id);
-        } else {
-            const lessons = await this.getAllLessons();
-            const filteredLessons = lessons.filter(l => l.id !== id);
-            await this.saveLessons(filteredLessons);
         }
     }
 
@@ -258,6 +242,7 @@ class StorageAdapter {
             return await this.indexedDBStorage.saveProgress('quiz', progress);
         } else {
             localStorage.setItem('quizProgress', JSON.stringify(progress));
+            return true;
         }
     }
 
@@ -283,6 +268,7 @@ class StorageAdapter {
             } else {
                 localStorage.setItem(key, value);
             }
+            return true;
         }
     }
 
@@ -364,7 +350,7 @@ class StorageAdapter {
         const info = {
             type: this.currentStorage,
             isReady: this.isReady,
-            supportsIndexedDB: this.supportsIndexedDB()
+            supportsIndexedDB: IndexedDBStorage.isSupported()
         };
         
         if (this.currentStorage === 'indexeddb') {
@@ -386,15 +372,38 @@ class StorageAdapter {
         return info;
     }
 
-    // Cleanup
-    close() {
-        if (this.indexedDBStorage) {
-            this.indexedDBStorage.close();
+    // Migration utilities
+    async startMigration(options = {}) {
+        await this.ensureReady();
+        
+        if (this.migration) {
+            return await this.migration.migrate(options);
+        } else {
+            return { success: false, message: 'Migration not available' };
         }
+    }
+
+    getMigrationStatus() {
+        return this.migration ? this.migration.getStatus() : null;
+    }
+
+    async verifyMigration() {
+        if (this.migration) {
+            return await this.migration.verifyMigration();
+        } else {
+            return { success: false, message: 'Migration not available' };
+        }
+    }
+
+    // Force storage type
+    forceStorageType(type) {
+        this.preferredStorage = type;
+        this.isReady = false;
+        return this.init();
     }
 }
 
-// Export for use in modules
+// Export for use
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = StorageAdapter;
 } else if (typeof window !== 'undefined') {

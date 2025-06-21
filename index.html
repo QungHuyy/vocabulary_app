@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ứng dụng học từ vựng tiếng Anh</title>
+    <title>Ứng dụng học từ vựng tiếng Anh - IndexedDB</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1><i class="fas fa-book"></i> Học từ vựng tiếng Anh</h1>
+            <h1><i class="fas fa-book"></i> Học từ vựng tiếng Anh <span class="storage-badge">IndexedDB</span></h1>
             <div class="stats">
                 <div class="stat-item">
                     <span class="stat-number" id="totalWords">0</span>
@@ -24,8 +24,23 @@
                     <span class="stat-number" id="accuracy">0%</span>
                     <span class="stat-label">Độ chính xác</span>
                 </div>
+                <div class="stat-item storage-info">
+                    <span class="stat-number" id="storageType">...</span>
+                    <span class="stat-label">Storage</span>
+                </div>
             </div>
         </header>
+
+        <!-- Migration Status Banner -->
+        <div id="migrationBanner" class="migration-banner" style="display: none;">
+            <div class="migration-content">
+                <i class="fas fa-database"></i>
+                <span id="migrationMessage">Đang khởi tạo...</span>
+                <div class="migration-progress">
+                    <div id="migrationProgressBar" class="progress-bar"></div>
+                </div>
+            </div>
+        </div>
 
         <nav class="tab-nav">
             <button class="tab-btn active" data-tab="lessons">
@@ -42,6 +57,9 @@
             </button>
             <button class="tab-btn" data-tab="review">
                 <i class="fas fa-eye"></i> Ôn tập
+            </button>
+            <button class="tab-btn" data-tab="backup">
+                <i class="fas fa-shield-alt"></i> Sao lưu
             </button>
         </nav>
 
@@ -258,6 +276,68 @@
                 </div>
             </div>
         </div>
+
+        <!-- Tab Sao lưu -->
+        <div class="tab-content" id="backup-tab">
+            <div class="card">
+                <h2><i class="fas fa-shield-alt"></i> Sao lưu & Phục hồi dữ liệu</h2>
+                
+                <!-- Storage Info -->
+                <div class="storage-info-panel">
+                    <h3><i class="fas fa-info-circle"></i> Thông tin lưu trữ</h3>
+                    <div id="storageInfoDisplay" class="storage-stats">
+                        <div class="loading">Đang tải...</div>
+                    </div>
+                </div>
+
+                <!-- Backup Management -->
+                <div class="backup-panel">
+                    <h3><i class="fas fa-download"></i> Tạo sao lưu</h3>
+                    <div class="backup-controls">
+                        <button class="btn btn-primary" onclick="app.createManualBackup()">
+                            <i class="fas fa-save"></i> Tạo sao lưu ngay
+                        </button>
+                        <button class="btn btn-secondary" onclick="app.exportData()">
+                            <i class="fas fa-file-export"></i> Xuất file JSON
+                        </button>
+                    </div>
+                    
+                    <div class="backup-list">
+                        <h4>Danh sách sao lưu tự động:</h4>
+                        <div id="backupsList" class="backups-container">
+                            <div class="loading">Đang tải...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Import Data -->
+                <div class="import-panel">
+                    <h3><i class="fas fa-upload"></i> Nhập dữ liệu</h3>
+                    <div class="import-controls">
+                        <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="app.importData(event)">
+                        <button class="btn btn-secondary" onclick="document.getElementById('importFileInput').click()">
+                            <i class="fas fa-file-import"></i> Chọn file JSON
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Migration Tools -->
+                <div class="migration-panel">
+                    <h3><i class="fas fa-exchange-alt"></i> Công cụ Migration</h3>
+                    <div class="migration-controls">
+                        <button class="btn btn-warning" onclick="app.checkMigrationStatus()">
+                            <i class="fas fa-search"></i> Kiểm tra trạng thái
+                        </button>
+                        <button class="btn btn-primary" onclick="app.verifyMigration()">
+                            <i class="fas fa-check-circle"></i> Xác minh dữ liệu
+                        </button>
+                    </div>
+                    <div id="migrationStatusDisplay" class="migration-status">
+                        <!-- Migration status will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Modal xác nhận xóa -->
@@ -272,22 +352,240 @@
         </div>
     </div>
 
+    <!-- Load main app script first -->
     <script src="script.js"></script>
+    
+    <!-- Load IndexedDB modules -->
+    <script src="src/js/core/indexeddb-storage.js"></script>
+    <script src="src/js/core/migration.js"></script>
+    <script src="src/js/core/storage-adapter.js"></script>
+    
     <script>
         // Global app variable for onclick events
         let app = null;
         
         // Initialize app when page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM loaded, initializing app...');
-            app = new VocabularyApp();
-            console.log('App initialized:', app);
+        document.addEventListener('DOMContentLoaded', async function() {
+            console.log('🚀 Initializing vocabulary app...');
             
-            // Wait a bit for app to fully initialize
-            setTimeout(() => {
-                setupEventListeners();
-            }, 100);
+            // Show migration banner
+            showMigrationBanner('Đang khởi tạo...', 10);
+            
+            try {
+                // Check if IndexedDB is supported
+                if (typeof IndexedDBStorage !== 'undefined' && IndexedDBStorage.isSupported()) {
+                    // Initialize VocabularyApp with IndexedDB support
+                    showMigrationBanner('Đang khởi tạo IndexedDB...', 30);
+                    app = new VocabularyAppIndexedDB();
+                    console.log('✅ IndexedDB App initialized');
+                } else {
+                    // Fallback to regular localStorage app
+                    showMigrationBanner('Sử dụng localStorage...', 50);
+                    app = new VocabularyApp();
+                    console.log('✅ localStorage App initialized');
+                }
+                
+                // Wait for app to be ready
+                let attempts = 0;
+                while (attempts < 50) {
+                    if (app.storage && app.storage.isReady) {
+                        break; // IndexedDB ready
+                    } else if (!app.storage) {
+                        break; // localStorage app (no storage adapter)
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    attempts++;
+                }
+                
+                hideMigrationBanner();
+                
+                // Setup event listeners
+                setTimeout(() => {
+                    setupEventListeners();
+                    updateStorageDisplay();
+                }, 100);
+                
+            } catch (error) {
+                console.error('❌ App initialization failed:', error);
+                showMigrationBanner('Lỗi khởi tạo: ' + error.message, 100, 'error');
+                
+                // Fallback to basic localStorage app
+                try {
+                    console.log('🔄 Falling back to localStorage app...');
+                    app = new VocabularyApp();
+                    setTimeout(() => {
+                        setupEventListeners();
+                        hideMigrationBanner();
+                    }, 500);
+                } catch (fallbackError) {
+                    console.error('❌ Fallback also failed:', fallbackError);
+                    showMigrationBanner('Lỗi nghiêm trọng: ' + fallbackError.message, 100, 'error');
+                }
+            }
         });
+        
+        function showMigrationBanner(message, progress = 0, type = 'info') {
+            const banner = document.getElementById('migrationBanner');
+            if (banner) {
+                const messageEl = document.getElementById('migrationMessage');
+                const progressBar = document.getElementById('migrationProgressBar');
+                
+                if (messageEl) messageEl.textContent = message;
+                if (progressBar) progressBar.style.width = progress + '%';
+                banner.className = 'migration-banner ' + type;
+                banner.style.display = 'block';
+            }
+        }
+        
+        function hideMigrationBanner() {
+            const banner = document.getElementById('migrationBanner');
+            if (banner) {
+                banner.style.display = 'none';
+            }
+        }
+        
+        async function updateStorageDisplay() {
+            if (!app) return;
+            
+            try {
+                const storageTypeEl = document.getElementById('storageType');
+                if (storageTypeEl) {
+                    if (app.storage && app.storage.getStorageInfo) {
+                        const storageInfo = await app.storage.getStorageInfo();
+                        storageTypeEl.textContent = storageInfo.type === 'indexeddb' ? 'IDB' : 'LS';
+                        storageTypeEl.title = storageInfo.type === 'indexeddb' ? 'IndexedDB' : 'localStorage';
+                        
+                        // Update detailed storage info if available
+                        const storageInfoDisplay = document.getElementById('storageInfoDisplay');
+                        if (storageInfoDisplay && storageInfo.stats) {
+                            storageInfoDisplay.innerHTML = `
+                                <div class="storage-stat">
+                                    <span>Loại lưu trữ:</span>
+                                    <span class="value">${storageInfo.type === 'indexeddb' ? 'IndexedDB' : 'localStorage'}</span>
+                                </div>
+                                <div class="storage-stat">
+                                    <span>Từ vựng:</span>
+                                    <span class="value">${storageInfo.stats?.words || 0}</span>
+                                </div>
+                                <div class="storage-stat">
+                                    <span>Bài học:</span>
+                                    <span class="value">${storageInfo.stats?.lessons || 0}</span>
+                                </div>
+                                <div class="storage-stat">
+                                    <span>Dung lượng đã dùng:</span>
+                                    <span class="value">${(storageInfo.usage?.usedBytes / 1024).toFixed(1)} KB</span>
+                                </div>
+                                ${storageInfo.usage?.usagePercentage ? `
+                                <div class="storage-stat">
+                                    <span>Tỷ lệ sử dụng:</span>
+                                    <span class="value">${storageInfo.usage.usagePercentage}</span>
+                                </div>
+                                ` : ''}
+                            `;
+                        }
+                        
+                        // Update backups list if IndexedDB
+                        if (storageInfo.type === 'indexeddb') {
+                            await updateBackupsList();
+                        }
+                    } else {
+                        // localStorage fallback
+                        storageTypeEl.textContent = 'LS';
+                        storageTypeEl.title = 'localStorage';
+                        
+                        const storageInfoDisplay = document.getElementById('storageInfoDisplay');
+                        if (storageInfoDisplay) {
+                            storageInfoDisplay.innerHTML = `
+                                <div class="storage-stat">
+                                    <span>Loại lưu trữ:</span>
+                                    <span class="value">localStorage</span>
+                                </div>
+                                <div class="storage-stat">
+                                    <span>Từ vựng:</span>
+                                    <span class="value">${app.words?.length || 0}</span>
+                                </div>
+                                <div class="storage-stat">
+                                    <span>Bài học:</span>
+                                    <span class="value">${app.lessons?.length || 0}</span>
+                                </div>
+                            `;
+                        }
+                    }
+                }
+
+                
+            } catch (error) {
+                console.error('Error updating storage display:', error);
+            }
+        }
+        
+        async function updateBackupsList() {
+            const backupsList = document.getElementById('backupsList');
+            if (!backupsList) return;
+            
+            try {
+                if (app.storage && app.storage.getAllBackups) {
+                    const backups = await app.storage.getAllBackups();
+                    if (backups.length === 0) {
+                        backupsList.innerHTML = '<p class="no-backups">Chưa có sao lưu nào</p>';
+                        return;
+                    }
+                    
+                    backupsList.innerHTML = backups.map(backup => `
+                        <div class="backup-item">
+                            <div class="backup-info">
+                                <div class="backup-desc">${backup.description}</div>
+                                <div class="backup-date">${new Date(backup.timestamp).toLocaleString('vi-VN')}</div>
+                            </div>
+                            <div class="backup-actions">
+                                <button class="btn btn-small btn-primary" onclick="app.restoreFromBackup(${backup.id})">
+                                    <i class="fas fa-undo"></i> Khôi phục
+                                </button>
+                                <button class="btn btn-small btn-danger" onclick="app.deleteBackup(${backup.id})">
+                                    <i class="fas fa-trash"></i> Xóa
+                                </button>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    backupsList.innerHTML = '<p class="no-backups">Tính năng backup chỉ có với IndexedDB</p>';
+                }
+                
+            } catch (error) {
+                backupsList.innerHTML = '<p class="error">Lỗi tải danh sách sao lưu</p>';
+            }
+        }
+        
+        // Backup and restore functions
+        async function createBackup() {
+            if (!app) {
+                alert('Ứng dụng chưa sẵn sàng');
+                return;
+            }
+            
+            try {
+                const description = prompt('Mô tả cho backup này:');
+                if (!description) return;
+                
+                showMigrationBanner('Đang tạo backup...', 10);
+                
+                if (app.createBackup) {
+                    await app.createBackup(description);
+                } else if (app.storage && app.storage.createBackup) {
+                    await app.storage.createBackup(description);
+                } else {
+                    throw new Error('Tính năng backup chỉ có với IndexedDB');
+                }
+                
+                await updateBackupsList();
+                await updateStorageDisplay();
+                hideMigrationBanner();
+                alert('Tạo backup thành công!');
+            } catch (error) {
+                hideMigrationBanner();
+                alert('Lỗi tạo backup: ' + error.message);
+            }
+        }
         
         function setupEventListeners() {
             console.log('Setting up event listeners...');
@@ -298,6 +596,9 @@
                     const tabName = this.getAttribute('data-tab');
                     if (app && app.switchTab) {
                         app.switchTab(tabName);
+                        if (tabName === 'backup') {
+                            updateStorageDisplay();
+                        }
                     }
                 });
             });
@@ -372,5 +673,136 @@
             console.log('Event listeners setup complete');
         }
     </script>
+    
+    <style>
+        .storage-badge {
+            background: #4CAF50;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            margin-left: 10px;
+        }
+        
+        .migration-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .migration-banner.error {
+            background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+        }
+        
+        .migration-content {
+            flex: 1;
+        }
+        
+        .migration-progress {
+            background: rgba(255,255,255,0.2);
+            height: 4px;
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            background: white;
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+        
+        .storage-info-panel, .backup-panel, .import-panel, .migration-panel {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .storage-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .storage-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 4px;
+        }
+        
+        .storage-stat .value {
+            font-weight: bold;
+            color: #2196F3;
+        }
+        
+        .backup-controls, .import-controls, .migration-controls {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .backups-container {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .backup-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        
+        .backup-info .backup-desc {
+            font-weight: bold;
+        }
+        
+        .backup-info .backup-date {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .backup-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .no-backups, .error {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .error {
+            color: #f44336;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+        
+        .migration-status {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            min-height: 50px;
+        }
+    </style>
 </body>
 </html> 
