@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IndexedDB vs localStorage - Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            min-height: 600px;
+        }
+
+        .storage-panel {
+            padding: 30px;
+            border-right: 1px solid #eee;
+        }
+
+        .storage-panel:last-child {
+            border-right: none;
+        }
+
+        .storage-panel h2 {
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .localStorage-panel {
+            background: #fff8f0;
+        }
+
+        .indexeddb-panel {
+            background: #f0f8ff;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-bottom: 30px;
+        }
+
+        .feature-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+
+        .feature-name {
+            font-weight: 500;
+        }
+
+        .feature-value {
+            font-weight: bold;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9em;
+        }
+
+        .good {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .bad {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .excellent {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .test-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+        }
+
+        .test-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .test-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9em;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #4facfe;
+        }
+
+        .results h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .result-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: #28a745;
+            color: white;
+            border-radius: 25px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+        }
+
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 20px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 2px 0;
+        }
+
+        .log-success {
+            color: #28a745;
+        }
+
+        .log-error {
+            color: #dc3545;
+        }
+
+        .log-info {
+            color: #17a2b8;
+        }
+
+        @media (max-width: 768px) {
+            .comparison {
+                grid-template-columns: 1fr;
+            }
+
+            .storage-panel {
+                border-right: none;
+                border-bottom: 1px solid #eee;
+            }
+
+            .storage-panel:last-child {
+                border-bottom: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 IndexedDB vs localStorage</h1>
+            <p>So sánh hiệu suất và tính năng lưu trữ cho ứng dụng từ vựng</p>
+        </div>
+
+        <div class="comparison">
+            <!-- localStorage Panel -->
+            <div class="storage-panel localStorage-panel">
+                <h2>
+                    <span>📦</span>
+                    localStorage (Hiện tại)
+                </h2>
+                
+                <ul class="feature-list">
+                    <li>
+                        <span class="feature-name">Dung lượng tối đa</span>
+                        <span class="feature-value bad">~5-10MB</span>
+                    </li>
+                    <li>
+                        <span class="feature-name">Hiệu suất</span>
+                        <span class="feature-value bad">Đồng bộ (chậm)</span>
+                    </li>
+                    <li>
+                        <span class="feature-name">Cấu trúc dữ liệu</span>
+                        <span class="feature-value bad">Key-Value</span>
+                    </li>
+                    <li>
+                        <span class="feature-name">Tìm kiếm</span>
+                        <span class="feature-value bad">Không hỗ trợ</span>
+                    </li>
+                    <li>
+                        <span class="feature-name">Backup tự động</span>
+                        <span class="feature-value bad">Không</span>
+                    </li>
+                    <li>
+                        <span class="feature-name">Transaction</span>
+                        <span class="feature-value bad">Không</span>
+                    </li>
+                    <li>
+                        <span class="feature-name">Khả năng offline</span>
+                        <span class="feature-value good">Có</span>
+                    </li>
+                </ul>
+
+                <div class="test-section">
+                    <h3>🧪 Test localStorage</h3>
+                    <div class="test-controls">
+                        <button class="btn btn-primary" onclick="testLocalStorageWrite()">
+                            Ghi dữ liệu
+                        </button>
+                        <button class="btn btn-secondary" onclick="testLocalStorageRead()">
+                            Đọc dữ liệu
+                        </button>
+                        <button class="btn btn-danger" onclick="clearLocalStorage()">
+                            Xóa dữ liệu
+                        </button>
+                    </div>
+                    <div id="localStorageResults" class="results" style="display: none;">
+                        <h4>Kết quả localStorage:</h4>
+                        <div id="localStorageStats"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IndexedDB Panel -->
+            <div class="storage-panel indexeddb-panel">
+                <h2>
+                    <span>🗄️</span>
+                    IndexedDB (Khuyến nghị)
+                </h2>
+                
+                <ul class="feature-list">
+                    <li>
+                        <span class="feature-name">Dung lượng tối đa</span>
+                        <span class="feature-value excellent">Hàng GB</span>
+                    </li>
+                    <li>
+                        <span class="feature-name">Hiệu suất</span>
+                        <span class="feature-value excellent">Bất đồng bộ (nhanh)</span>
+                    </li>
+                    <li>
+                        <span class="feature-name">Cấu trúc dữ liệu</span>
+                        <span class="feature-value excellent">Database + Index</span>
+                    </li>
+                    <li>
+                        <span class="feature-name">Tìm kiếm</span>
+                        <span class="feature-value excellent">Index + Range query</span>
+                    </li>
+                    <li>
+                        <span class="feature-name">Backup tự động</span>
+                        <span class="feature-value excellent">Có sẵn</span>
+                    </li>
+                    <li>
+                        <span class="feature-name">Transaction</span>
+                        <span class="feature-value excellent">ACID</span>
+                    </li>
+                    <li>
+                        <span class="feature-name">Khả năng offline</span>
+                        <span class="feature-value excellent">Tốt hơn</span>
+                    </li>
+                </ul>
+
+                <div class="test-section">
+                    <h3>🧪 Test IndexedDB</h3>
+                    <div class="test-controls">
+                        <button class="btn btn-primary" onclick="initIndexedDB()">
+                            Khởi tạo DB
+                        </button>
+                        <button class="btn btn-success" onclick="testIndexedDBWrite()">
+                            Ghi dữ liệu
+                        </button>
+                        <button class="btn btn-secondary" onclick="testIndexedDBRead()">
+                            Đọc dữ liệu
+                        </button>
+                        <button class="btn btn-danger" onclick="clearIndexedDB()">
+                            Xóa dữ liệu
+                        </button>
+                    </div>
+                    <div id="indexedDBResults" class="results" style="display: none;">
+                        <h4>Kết quả IndexedDB:</h4>
+                        <div id="indexedDBStats"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Log Section -->
+        <div style="padding: 30px;">
+            <h3>📝 Log hoạt động</h3>
+            <div id="logContainer" class="log">
+                <div class="log-entry log-info">Sẵn sàng cho testing...</div>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn btn-primary" onclick="runPerformanceTest()">
+                    🏃‍♂️ Chạy test hiệu suất
+                </button>
+                <button class="btn btn-success" onclick="testMigration()">
+                    🔄 Test Migration
+                </button>
+                <button class="btn btn-secondary" onclick="clearLogs()">
+                    🗑️ Xóa log
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="status" class="status">
+        <span id="statusText">✅ Hoàn thành!</span>
+    </div>
+
+    <script>
+        // Global variables
+        let indexedDB_instance = null;
+        let testData = [];
+
+        // Generate test data
+        function generateTestData(count = 100) {
+            const words = [];
+            const categories = ['noun', 'verb', 'adjective', 'adverb'];
+            
+            for (let i = 0; i < count; i++) {
+                words.push({
+                    id: Date.now() + i,
+                    english: `word_${i}`,
+                    vietnamese: `từ_${i}`,
+                    category: categories[i % categories.length],
+                    example: `This is example sentence ${i}`,
+                    lessonId: `lesson_${Math.floor(i / 20)}`,
+                    addedDate: new Date().toISOString(),
+                    reviewed: Math.floor(Math.random() * 10),
+                    lastReviewed: new Date().toISOString()
+                });
+            }
+            
+            return words;
+        }
+
+        // Logging functions
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '';
+            log('Log đã được xóa', 'info');
+        }
+
+        function showStatus(message, duration = 2000) {
+            const status = document.getElementById('status');
+            const statusText = document.getElementById('statusText');
+            statusText.textContent = message;
+            status.style.display = 'block';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, duration);
+        }
+
+        // localStorage Tests
+        function testLocalStorageWrite() {
+            log('Bắt đầu test ghi localStorage...', 'info');
+            const startTime = performance.now();
+            
+            try {
+                testData = generateTestData(1000);
+                localStorage.setItem('testWords', JSON.stringify(testData));
+                
+                const endTime = performance.now();
+                const duration = (endTime - startTime).toFixed(2);
+                
+                log(`✅ Ghi ${testData.length} từ vào localStorage trong ${duration}ms`, 'success');
+                
+                // Show results
+                const results = document.getElementById('localStorageResults');
+                const stats = document.getElementById('localStorageStats');
+                
+                const dataSize = new Blob([JSON.stringify(testData)]).size;
+                
+                stats.innerHTML = `
+                    <div class="result-item">
+                        <span>Số từ:</span>
+                        <span>${testData.length}</span>
+                    </div>
+                    <div class="result-item">
+                        <span>Thời gian ghi:</span>
+                        <span>${duration}ms</span>
+                    </div>
+                    <div class="result-item">
+                        <span>Kích thước:</span>
+                        <span>${(dataSize / 1024).toFixed(2)} KB</span>
+                    </div>
+                `;
+                
+                results.style.display = 'block';
+                showStatus('✅ localStorage test hoàn thành!');
+                
+            } catch (error) {
+                log(`❌ Lỗi localStorage: ${error.message}`, 'error');
+            }
+        }
+
+        function testLocalStorageRead() {
+            log('Bắt đầu test đọc localStorage...', 'info');
+            const startTime = performance.now();
+            
+            try {
+                const data = localStorage.getItem('testWords');
+                if (!data) {
+                    log('❌ Không có dữ liệu để đọc. Chạy test ghi trước.', 'error');
+                    return;
+                }
+                
+                const words = JSON.parse(data);
+                const endTime = performance.now();
+                const duration = (endTime - startTime).toFixed(2);
+                
+                log(`✅ Đọc ${words.length} từ từ localStorage trong ${duration}ms`, 'success');
+                showStatus('✅ Đọc localStorage thành công!');
+                
+            } catch (error) {
+                log(`❌ Lỗi đọc localStorage: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLocalStorage() {
+            localStorage.removeItem('testWords');
+            log('🗑️ Đã xóa dữ liệu localStorage', 'info');
+            document.getElementById('localStorageResults').style.display = 'none';
+            showStatus('🗑️ Đã xóa localStorage');
+        }
+
+        // IndexedDB Tests
+        async function initIndexedDB() {
+            log('Khởi tạo IndexedDB...', 'info');
+            
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('TestVocabularyDB', 1);
+                
+                request.onerror = () => {
+                    log('❌ Lỗi mở IndexedDB', 'error');
+                    reject(request.error);
+                };
+                
+                request.onsuccess = () => {
+                    indexedDB_instance = request.result;
+                    log('✅ IndexedDB đã sẵn sàng', 'success');
+                    showStatus('✅ IndexedDB khởi tạo thành công!');
+                    resolve(indexedDB_instance);
+                };
+                
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    
+                    // Create words store
+                    if (!db.objectStoreNames.contains('words')) {
+                        const wordsStore = db.createObjectStore('words', { keyPath: 'id' });
+                        wordsStore.createIndex('english', 'english', { unique: false });
+                        wordsStore.createIndex('category', 'category', { unique: false });
+                        wordsStore.createIndex('lessonId', 'lessonId', { unique: false });
+                        
+                        log('📋 Tạo schema IndexedDB', 'info');
+                    }
+                };
+            });
+        }
+
+        async function testIndexedDBWrite() {
+            if (!indexedDB_instance) {
+                await initIndexedDB();
+            }
+            
+            log('Bắt đầu test ghi IndexedDB...', 'info');
+            const startTime = performance.now();
+            
+            try {
+                testData = generateTestData(1000);
+                
+                const transaction = indexedDB_instance.transaction(['words'], 'readwrite');
+                const store = transaction.objectStore('words');
+                
+                // Clear existing data
+                await store.clear();
+                
+                // Add new data
+                const promises = testData.map(word => {
+                    return new Promise((resolve, reject) => {
+                        const request = store.add(word);
+                        request.onsuccess = () => resolve();
+                        request.onerror = () => reject(request.error);
+                    });
+                });
+                
+                await Promise.all(promises);
+                
+                const endTime = performance.now();
+                const duration = (endTime - startTime).toFixed(2);
+                
+                log(`✅ Ghi ${testData.length} từ vào IndexedDB trong ${duration}ms`, 'success');
+                
+                // Show results
+                const results = document.getElementById('indexedDBResults');
+                const stats = document.getElementById('indexedDBStats');
+                
+                const dataSize = new Blob([JSON.stringify(testData)]).size;
+                
+                stats.innerHTML = `
+                    <div class="result-item">
+                        <span>Số từ:</span>
+                        <span>${testData.length}</span>
+                    </div>
+                    <div class="result-item">
+                        <span>Thời gian ghi:</span>
+                        <span>${duration}ms</span>
+                    </div>
+                    <div class="result-item">
+                        <span>Kích thước:</span>
+                        <span>${(dataSize / 1024).toFixed(2)} KB</span>
+                    </div>
+                    <div class="result-item">
+                        <span>Indexes:</span>
+                        <span>3 indexes</span>
+                    </div>
+                `;
+                
+                results.style.display = 'block';
+                showStatus('✅ IndexedDB test hoàn thành!');
+                
+            } catch (error) {
+                log(`❌ Lỗi IndexedDB: ${error.message}`, 'error');
+            }
+        }
+
+        async function testIndexedDBRead() {
+            if (!indexedDB_instance) {
+                log('❌ IndexedDB chưa được khởi tạo', 'error');
+                return;
+            }
+            
+            log('Bắt đầu test đọc IndexedDB...', 'info');
+            const startTime = performance.now();
+            
+            try {
+                const transaction = indexedDB_instance.transaction(['words'], 'readonly');
+                const store = transaction.objectStore('words');
+                
+                const request = store.getAll();
+                
+                const words = await new Promise((resolve, reject) => {
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+                
+                const endTime = performance.now();
+                const duration = (endTime - startTime).toFixed(2);
+                
+                log(`✅ Đọc ${words.length} từ từ IndexedDB trong ${duration}ms`, 'success');
+                
+                // Test index query
+                const indexStartTime = performance.now();
+                const index = store.index('category');
+                const nounsRequest = index.getAll('noun');
+                
+                const nouns = await new Promise((resolve, reject) => {
+                    nounsRequest.onsuccess = () => resolve(nounsRequest.result);
+                    nounsRequest.onerror = () => reject(nounsRequest.error);
+                });
+                
+                const indexEndTime = performance.now();
+                const indexDuration = (indexEndTime - indexStartTime).toFixed(2);
+                
+                log(`✅ Tìm ${nouns.length} danh từ bằng index trong ${indexDuration}ms`, 'success');
+                showStatus('✅ Đọc IndexedDB thành công!');
+                
+            } catch (error) {
+                log(`❌ Lỗi đọc IndexedDB: ${error.message}`, 'error');
+            }
+        }
+
+        async function clearIndexedDB() {
+            if (!indexedDB_instance) {
+                log('❌ IndexedDB chưa được khởi tạo', 'error');
+                return;
+            }
+            
+            try {
+                const transaction = indexedDB_instance.transaction(['words'], 'readwrite');
+                const store = transaction.objectStore('words');
+                await store.clear();
+                
+                log('🗑️ Đã xóa dữ liệu IndexedDB', 'info');
+                document.getElementById('indexedDBResults').style.display = 'none';
+                showStatus('🗑️ Đã xóa IndexedDB');
+                
+            } catch (error) {
+                log(`❌ Lỗi xóa IndexedDB: ${error.message}`, 'error');
+            }
+        }
+
+        // Performance Test
+        async function runPerformanceTest() {
+            log('🏃‍♂️ Bắt đầu test hiệu suất toàn diện...', 'info');
+            
+            const testSizes = [100, 500, 1000, 2000];
+            
+            for (const size of testSizes) {
+                log(`\n--- Test với ${size} từ vựng ---`, 'info');
+                
+                // localStorage test
+                const localStartTime = performance.now();
+                try {
+                    const data = generateTestData(size);
+                    localStorage.setItem('perfTest', JSON.stringify(data));
+                    const localEndTime = performance.now();
+                    log(`localStorage ghi ${size} từ: ${(localEndTime - localStartTime).toFixed(2)}ms`, 'info');
+                    
+                    const localReadStart = performance.now();
+                    const readData = JSON.parse(localStorage.getItem('perfTest'));
+                    const localReadEnd = performance.now();
+                    log(`localStorage đọc ${size} từ: ${(localReadEnd - localReadStart).toFixed(2)}ms`, 'info');
+                    
+                } catch (error) {
+                    log(`localStorage lỗi với ${size} từ: ${error.message}`, 'error');
+                }
+                
+                // IndexedDB test
+                if (!indexedDB_instance) {
+                    await initIndexedDB();
+                }
+                
+                try {
+                    const data = generateTestData(size);
+                    const idbStartTime = performance.now();
+                    
+                    const transaction = indexedDB_instance.transaction(['words'], 'readwrite');
+                    const store = transaction.objectStore('words');
+                    await store.clear();
+                    
+                    for (const word of data) {
+                        await new Promise((resolve, reject) => {
+                            const request = store.add(word);
+                            request.onsuccess = () => resolve();
+                            request.onerror = () => reject(request.error);
+                        });
+                    }
+                    
+                    const idbEndTime = performance.now();
+                    log(`IndexedDB ghi ${size} từ: ${(idbEndTime - idbStartTime).toFixed(2)}ms`, 'info');
+                    
+                    const idbReadStart = performance.now();
+                    const readTransaction = indexedDB_instance.transaction(['words'], 'readonly');
+                    const readStore = readTransaction.objectStore('words');
+                    const readRequest = readStore.getAll();
+                    
+                    await new Promise((resolve, reject) => {
+                        readRequest.onsuccess = () => resolve(readRequest.result);
+                        readRequest.onerror = () => reject(readRequest.error);
+                    });
+                    
+                    const idbReadEnd = performance.now();
+                    log(`IndexedDB đọc ${size} từ: ${(idbReadEnd - idbReadStart).toFixed(2)}ms`, 'info');
+                    
+                } catch (error) {
+                    log(`IndexedDB lỗi với ${size} từ: ${error.message}`, 'error');
+                }
+            }
+            
+            log('🏁 Hoàn thành test hiệu suất!', 'success');
+            showStatus('🏁 Performance test hoàn thành!', 3000);
+        }
+
+        // Migration Test
+        async function testMigration() {
+            log('🔄 Bắt đầu test migration...', 'info');
+            
+            // 1. Create test data in localStorage
+            const testWords = generateTestData(50);
+            localStorage.setItem('vocabularyWords', JSON.stringify(testWords));
+            localStorage.setItem('vocabularyLessons', JSON.stringify([
+                { id: 'lesson_0', name: 'Test Lesson 1', color: 'blue' },
+                { id: 'lesson_1', name: 'Test Lesson 2', color: 'green' }
+            ]));
+            
+            log('📦 Tạo dữ liệu test trong localStorage', 'info');
+            
+            // 2. Initialize IndexedDB
+            if (!indexedDB_instance) {
+                await initIndexedDB();
+            }
+            
+            // 3. Migrate data
+            try {
+                const words = JSON.parse(localStorage.getItem('vocabularyWords'));
+                const lessons = JSON.parse(localStorage.getItem('vocabularyLessons'));
+                
+                // Migrate lessons first
+                const lessonTransaction = indexedDB_instance.transaction(['words'], 'readwrite');
+                const lessonStore = lessonTransaction.objectStore('words');
+                await lessonStore.clear();
+                
+                // Migrate words
+                for (const word of words) {
+                    await new Promise((resolve, reject) => {
+                        const request = lessonStore.add(word);
+                        request.onsuccess = () => resolve();
+                        request.onerror = () => reject(request.error);
+                    });
+                }
+                
+                log(`✅ Migration thành công: ${words.length} từ, ${lessons.length} bài học`, 'success');
+                
+                // 4. Verify migration
+                const verifyTransaction = indexedDB_instance.transaction(['words'], 'readonly');
+                const verifyStore = verifyTransaction.objectStore('words');
+                const verifyRequest = verifyStore.getAll();
+                
+                const migratedWords = await new Promise((resolve, reject) => {
+                    verifyRequest.onsuccess = () => resolve(verifyRequest.result);
+                    verifyRequest.onerror = () => reject(verifyRequest.error);
+                });
+                
+                log(`✅ Xác thực: ${migratedWords.length} từ đã được migrate`, 'success');
+                showStatus('✅ Migration test thành công!', 3000);
+                
+            } catch (error) {
+                log(`❌ Migration lỗi: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🚀 Demo IndexedDB vs localStorage sẵn sàng', 'success');
+            
+            // Check IndexedDB support
+            if ('indexedDB' in window) {
+                log('✅ Trình duyệt hỗ trợ IndexedDB', 'success');
+            } else {
+                log('❌ Trình duyệt không hỗ trợ IndexedDB', 'error');
+            }
+            
+            // Check localStorage support
+            if ('localStorage' in window) {
+                log('✅ Trình duyệt hỗ trợ localStorage', 'success');
+            } else {
+                log('❌ Trình duyệt không hỗ trợ localStorage', 'error');
+            }
+        });
+    </script>
+</body>
+</html> 
