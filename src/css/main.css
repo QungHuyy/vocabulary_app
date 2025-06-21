@@ -1,0 +1,27 @@
+/* Main CSS - Import all components */
+
+/* Base styles */
+@import './base/reset.css';
+@import './base/variables.css';
+@import './base/typography.css';
+
+/* Component styles */
+@import './components/header.css';
+@import './components/tabs.css';
+@import './components/forms.css';
+@import './components/buttons.css';
+@import './components/lessons.css';
+@import './components/words.css';
+
+/* Practice mode styles */
+@import './practice/flashcards.css';
+@import './practice/quiz.css';
+@import './practice/spelling.css';
+@import './practice/matching.css';
+@import './practice/speed.css';
+@import './practice/listening.css';
+
+/* Utility styles */
+@import './utils/modals.css';
+@import './utils/messages.css';
+@import './utils/responsive.css'; 

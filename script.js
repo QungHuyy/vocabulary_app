@@ -347,7 +347,7 @@ class VocabularyApp {
                 <div class="word-header-with-audio">
                     <div class="word-title-audio">
                         <span class="word-english">${word.english}</span>
-                        <button class="pronunciation-btn" onclick="app.speakWord('${word.english}')" title="Phát âm">
+                        <button class="pronunciation-btn" onclick="app.speakEnglishOnly('${word.english}')" title="Phát âm tiếng Anh">
                             <i class="fas fa-volume-up"></i>
                         </button>
                     </div>
@@ -643,7 +643,7 @@ class VocabularyApp {
                 <div class="quiz-word-audio">
                     <div class="question-text">${questionText}</div>
                     ${quiz.mode !== 'vi-to-en' && questionText === currentWord.english ? `
-                        <button class="pronunciation-btn" onclick="app.speakWord('${currentWord.english}')" title="Phát âm">
+                        <button class="pronunciation-btn" onclick="app.speakEnglishOnly('${currentWord.english}')" title="Phát âm tiếng Anh">
                             <i class="fas fa-volume-up"></i>
                         </button>
                     ` : ''}
@@ -814,7 +814,7 @@ class VocabularyApp {
             <div class="review-card">
                 <div class="review-word-audio">
                     <div class="review-word">${word.english}</div>
-                    <button class="pronunciation-btn" onclick="app.speakWord('${word.english}')" title="Phát âm">
+                    <button class="pronunciation-btn" onclick="app.speakEnglishOnly('${word.english}')" title="Phát âm tiếng Anh">
                         <i class="fas fa-volume-up"></i>
                     </button>
                 </div>
@@ -884,10 +884,16 @@ class VocabularyApp {
         }
     }
 
-    // Speech Synthesis for Pronunciation
+    // Speech Synthesis for Pronunciation - ENGLISH ONLY
     speakWord(word) {
         if (!word || word.trim() === '') {
             this.showMessage('Không có từ để phát âm!', 'error');
+            return;
+        }
+
+        // IMPORTANT: Only pronounce English text - filter out Vietnamese
+        if (!this.isEnglishText(word)) {
+            console.log('Skipping non-English text pronunciation:', word);
             return;
         }
 
@@ -904,7 +910,7 @@ class VocabularyApp {
         const utterance = new SpeechSynthesisUtterance(word.trim());
         
         // Set voice properties
-        utterance.lang = 'en-US'; // English US
+        utterance.lang = 'en-US'; // English US ONLY
         utterance.rate = 0.8; // Slightly slower for learning
         utterance.pitch = 1;
         utterance.volume = 1;
@@ -921,23 +927,27 @@ class VocabularyApp {
 
         // Add event listeners
         utterance.onstart = () => {
+            console.log('Speaking English word:', word);
             // Visual feedback - change button style while speaking
-            const buttons = document.querySelectorAll('.pronunciation-btn, .btn-pronunciation');
+            const buttons = document.querySelectorAll('.pronunciation-btn, .btn-pronunciation, .listening-audio-btn');
             buttons.forEach(btn => {
                 if (btn.onclick && btn.onclick.toString().includes(word)) {
                     btn.style.background = 'linear-gradient(135deg, #ff6b35 0%, #f7931e 100%)';
                     btn.style.transform = 'scale(1.1)';
+                    btn.classList.add('speaking');
                 }
             });
         };
 
         utterance.onend = () => {
+            console.log('Finished speaking English word:', word);
             // Reset button styles
-            const buttons = document.querySelectorAll('.pronunciation-btn, .btn-pronunciation');
+            const buttons = document.querySelectorAll('.pronunciation-btn, .btn-pronunciation, .listening-audio-btn');
             buttons.forEach(btn => {
                 if (btn.onclick && btn.onclick.toString().includes(word)) {
                     btn.style.background = '';
                     btn.style.transform = '';
+                    btn.classList.remove('speaking');
                 }
             });
         };
@@ -949,6 +959,32 @@ class VocabularyApp {
 
         // Speak the word
         speechSynthesis.speak(utterance);
+    }
+
+    // Check if text is English (basic Vietnamese detection)
+    isEnglishText(text) {
+        if (!text || typeof text !== 'string') return false;
+        
+        const cleanText = text.trim();
+        
+        // Vietnamese character pattern detection
+        const vietnamesePattern = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđĐ]/;
+        
+        if (vietnamesePattern.test(cleanText)) {
+            return false; // Contains Vietnamese characters
+        }
+
+        // If text doesn't contain Vietnamese characters, consider it English
+        return true;
+    }
+
+    // Safe pronunciation method that ensures only English is spoken
+    speakEnglishOnly(englishWord) {
+        if (this.isEnglishText(englishWord)) {
+            this.speakWord(englishWord);
+        } else {
+            console.log('Word is not English, skipping pronunciation:', englishWord);
+        }
     }
 
     // Load voices when they become available
@@ -1406,7 +1442,7 @@ class VocabularyApp {
             <div class="flashcard ${this.currentFlashcards.isFlipped ? 'flipped' : ''}" onclick="app.flipFlashcard()">
                 <div class="flashcard-front">
                     <div class="flashcard-word">${frontText}</div>
-                    <button class="pronunciation-btn" onclick="event.stopPropagation(); app.speakWord('${currentWord.english}')" title="Phát âm">
+                    <button class="pronunciation-btn" onclick="event.stopPropagation(); app.speakEnglishOnly('${currentWord.english}')" title="Phát âm tiếng Anh">
                         <i class="fas fa-volume-up"></i>
                     </button>
                 </div>
@@ -1421,10 +1457,10 @@ class VocabularyApp {
             </div>
         `;
         
-        // Auto-pronounce English word when showing front
+        // Auto-pronounce English word ONLY when showing front
         if (!this.currentFlashcards.isFlipped) {
             setTimeout(() => {
-                this.speakWord(currentWord.english);
+                this.speakEnglishOnly(currentWord.english);
             }, 500);
         }
     }
@@ -1626,12 +1662,16 @@ class VocabularyApp {
             <div class="spelling-question">
                 <p>${questionText}</p>
                 <div class="spelling-audio-container">
-                    <button class="listening-audio-btn" onclick="app.speakWord('${audioWord}')" title="Nghe lại">
-                        <i class="fas fa-volume-up"></i> Nghe
-                    </button>
-                    ${!isEnSpell ? `
+                    ${isEnSpell ? `
+                        <button class="listening-audio-btn" onclick="app.speakEnglishOnly('${currentWord.english}')" title="Nghe từ tiếng Anh">
+                            <i class="fas fa-volume-up"></i> Nghe từ tiếng Anh
+                        </button>
+                    ` : `
                         <div class="spelling-hint-text">${hintText}</div>
-                    ` : ''}
+                        <button class="listening-audio-btn" onclick="app.speakEnglishOnly('${currentWord.english}')" title="Gợi ý phát âm tiếng Anh">
+                            <i class="fas fa-volume-up"></i> Gợi ý phát âm
+                        </button>
+                    `}
                 </div>
                 ${isEnSpell ? `<p style="color: #666; margin-bottom: 20px;">${hintText}</p>` : ''}
                 <input type="text" class="spelling-input" id="spellingInput" placeholder="${placeholder}" onkeypress="app.handleSpellingKeyPress(event)">
@@ -1646,10 +1686,12 @@ class VocabularyApp {
         
         document.getElementById('spellingInput').focus();
         
-        // Auto play the audio
-        setTimeout(() => {
-            this.speakWord(audioWord);
-        }, 500);
+        // Auto play English audio ONLY if it's English spelling
+        if (isEnSpell) {
+            setTimeout(() => {
+                this.speakEnglishOnly(currentWord.english);
+            }, 500);
+        }
     }
 
     handleSpellingKeyPress(event) {
@@ -1808,7 +1850,7 @@ class VocabularyApp {
                              data-id="${word.id}">
                             ${word.displayText}
                             ${word.type === 'english' ? `
-                                <button class="pronunciation-btn-small" onclick="event.stopPropagation(); app.speakWord('${word.english}')" title="Phát âm">
+                                <button class="pronunciation-btn-small" onclick="event.stopPropagation(); app.speakEnglishOnly('${word.english}')" title="Phát âm tiếng Anh">
                                     <i class="fas fa-volume-up"></i>
                                 </button>
                             ` : ''}
@@ -1824,7 +1866,7 @@ class VocabularyApp {
                              data-id="${word.id}">
                             ${word.displayText}
                             ${word.type === 'english' ? `
-                                <button class="pronunciation-btn-small" onclick="event.stopPropagation(); app.speakWord('${word.english}')" title="Phát âm">
+                                <button class="pronunciation-btn-small" onclick="event.stopPropagation(); app.speakEnglishOnly('${word.english}')" title="Phát âm tiếng Anh">
                                     <i class="fas fa-volume-up"></i>
                                 </button>
                             ` : ''}
@@ -2019,7 +2061,7 @@ class VocabularyApp {
                 <div class="speed-word-container">
                     <div class="speed-word">${questionText}</div>
                     ${isEnToVi ? `
-                        <button class="pronunciation-btn" onclick="app.speakWord('${currentWord.english}')" title="Phát âm">
+                        <button class="pronunciation-btn" onclick="app.speakEnglishOnly('${currentWord.english}')" title="Phát âm tiếng Anh">
                             <i class="fas fa-volume-up"></i>
                         </button>
                     ` : ''}
@@ -2141,20 +2183,18 @@ class VocabularyApp {
         
         // Determine question type randomly (English to Vietnamese or Vietnamese to English)
         const isEnToVi = Math.random() < 0.5;
-        let questionText, correctAnswer, questionInstruction, isVietnamese, audioWord;
+        let questionText, correctAnswer, questionInstruction, isVietnamese;
         
         if (isEnToVi) {
             questionText = currentWord.english;
             correctAnswer = currentWord.vietnamese;
             questionInstruction = 'Nghe từ tiếng Anh và chọn nghĩa tiếng Việt:';
             isVietnamese = true;
-            audioWord = currentWord.english;
         } else {
             questionText = currentWord.vietnamese;
             correctAnswer = currentWord.english;
-            questionInstruction = 'Nghe nghĩa tiếng Việt và chọn từ tiếng Anh:';
+            questionInstruction = 'Nghe từ tiếng Anh và chọn từ tiếng Anh tương ứng:';
             isVietnamese = false;
-            audioWord = currentWord.vietnamese;
         }
         
         // Generate wrong answers
@@ -2169,11 +2209,13 @@ class VocabularyApp {
             <div class="listening-question">
                 <p>${questionInstruction}</p>
                 <div class="listening-audio-controls">
-                    <button class="listening-audio-btn" onclick="app.speakWord('${audioWord}')" title="Nghe lại">
-                        <i class="fas fa-volume-up"></i> Nghe
+                    <button class="listening-audio-btn" onclick="app.speakEnglishOnly('${currentWord.english}')" title="Nghe từ tiếng Anh">
+                        <i class="fas fa-volume-up"></i> Nghe từ tiếng Anh
                     </button>
                     ${!isEnToVi ? `
-                        <div class="listening-text-display">${questionText}</div>
+                        <div class="listening-text-display" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                            <strong>Nghĩa tiếng Việt:</strong> ${questionText}
+                        </div>
                     ` : ''}
                 </div>
                 
@@ -2187,9 +2229,9 @@ class VocabularyApp {
             </div>
         `;
         
-        // Auto play the word
+        // Auto play the English word ONLY
         setTimeout(() => {
-            this.speakWord(audioWord);
+            this.speakEnglishOnly(currentWord.english);
         }, 500);
     }
 

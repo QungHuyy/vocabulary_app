@@ -1,0 +1,258 @@
+/* Button Components - Including English-only pronunciation buttons */
+
+/* Base button styles */
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: var(--radius-lg);
+    font-size: var(--font-base);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: var(--transition-normal);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    text-decoration: none;
+    line-height: 1;
+}
+
+/* Button variants */
+.btn-primary {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(79, 172, 254, 0.3);
+}
+
+.btn-secondary {
+    background: var(--secondary-color);
+    color: var(--text-white);
+}
+
+.btn-secondary:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+}
+
+.btn-danger {
+    background: var(--danger-color);
+    color: var(--text-white);
+}
+
+.btn-danger:hover {
+    background: #c82333;
+    transform: translateY(-2px);
+}
+
+.btn-success {
+    background: var(--success-color);
+    color: var(--text-white);
+}
+
+.btn-success:hover {
+    background: #218838;
+}
+
+.btn-warning {
+    background: var(--warning-color);
+    color: #212529;
+}
+
+.btn-warning:hover {
+    background: #e0a800;
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: var(--font-sm);
+}
+
+/* Pronunciation buttons - English only */
+.pronunciation-btn,
+.btn-pronunciation {
+    background: linear-gradient(135deg, var(--success-color) 0%, #20c997 100%);
+    color: var(--text-white);
+    border: none;
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: var(--transition-normal);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: var(--font-sm);
+    position: relative;
+}
+
+.pronunciation-btn:hover,
+.btn-pronunciation:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 3px 10px rgba(40, 167, 69, 0.3);
+}
+
+.pronunciation-btn:active,
+.btn-pronunciation:active {
+    transform: translateY(0) scale(0.95);
+}
+
+/* Speaking state */
+.pronunciation-btn.speaking,
+.btn-pronunciation.speaking {
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+    animation: pulse-speak 1s infinite;
+}
+
+@keyframes pulse-speak {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Large pronunciation button for input forms */
+.btn-pronunciation {
+    padding: 12px 16px;
+    border: 2px solid var(--primary-color);
+    border-radius: var(--radius-lg);
+    background: var(--bg-white);
+    color: var(--primary-color);
+    min-width: 50px;
+}
+
+.btn-pronunciation:hover {
+    background: var(--primary-color);
+    color: var(--text-white);
+    transform: scale(1.1);
+}
+
+/* Small pronunciation button for lists */
+.pronunciation-btn-small {
+    background: linear-gradient(135deg, var(--primary-color) 0%, #00f2fe 100%);
+    color: var(--text-white);
+    border: none;
+    border-radius: var(--radius-round);
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    margin-left: var(--spacing-sm);
+    font-size: var(--font-xs);
+    transition: var(--transition-normal);
+}
+
+.pronunciation-btn-small:hover {
+    transform: scale(1.1);
+    box-shadow: var(--shadow-md);
+}
+
+/* Listening practice audio button */
+.listening-audio-btn {
+    background: var(--primary-gradient);
+    color: var(--text-white);
+    border: none;
+    border-radius: 50px;
+    padding: 15px 25px;
+    font-size: var(--font-xl);
+    cursor: pointer;
+    transition: var(--transition-normal);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    box-shadow: var(--shadow-md);
+}
+
+.listening-audio-btn:hover {
+    transform: scale(1.1);
+    box-shadow: var(--shadow-lg);
+}
+
+.listening-audio-btn:active {
+    transform: scale(0.95);
+}
+
+/* English-only indicator */
+.pronunciation-btn::after,
+.btn-pronunciation::after,
+.listening-audio-btn::after {
+    content: 'EN';
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: var(--warning-color);
+    color: #212529;
+    font-size: 8px;
+    font-weight: var(--font-bold);
+    padding: 1px 3px;
+    border-radius: var(--radius-sm);
+    line-height: 1;
+    opacity: 0.8;
+}
+
+/* Hide English indicator on small buttons */
+.pronunciation-btn-small::after {
+    display: none;
+}
+
+/* Disabled state */
+.pronunciation-btn:disabled,
+.btn-pronunciation:disabled,
+.listening-audio-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.pronunciation-btn:disabled:hover,
+.btn-pronunciation:disabled:hover,
+.listening-audio-btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* Button groups */
+.btn-group {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.btn-group .btn {
+    margin: 0;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .btn {
+        padding: 10px 16px;
+        font-size: var(--font-sm);
+    }
+    
+    .btn-small {
+        padding: 6px 10px;
+        font-size: var(--font-xs);
+    }
+    
+    .pronunciation-btn,
+    .btn-pronunciation {
+        padding: 6px 10px;
+        font-size: var(--font-xs);
+    }
+    
+    .pronunciation-btn-small {
+        width: 25px;
+        height: 25px;
+        font-size: 0.7rem;
+    }
+    
+    .listening-audio-btn {
+        padding: 12px 20px;
+        font-size: var(--font-base);
+    }
+    
+    .btn-group {
+        flex-direction: column;
+    }
+} 
