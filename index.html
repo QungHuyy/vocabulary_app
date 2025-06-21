@@ -352,6 +352,32 @@
         </div>
     </div>
 
+    <!-- Modal nhập liệu đẹp -->
+    <div id="inputModal" class="modal">
+        <div class="modal-content input-modal">
+            <div class="modal-header">
+                <h3 id="inputModalTitle">Nhập thông tin</h3>
+                <button class="modal-close" onclick="app.closeInputModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="inputModalMessage">Vui lòng nhập thông tin:</p>
+                <div class="input-group">
+                    <label id="inputModalLabel" for="inputModalField">Giá trị:</label>
+                    <input type="text" id="inputModalField" class="input-field" placeholder="">
+                    <div class="input-hint" id="inputModalHint"></div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="inputModalConfirm" class="btn btn-primary">
+                    <i class="fas fa-check"></i> Xác nhận
+                </button>
+                <button id="inputModalCancel" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Hủy
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Load main app script first -->
     <script src="script.js"></script>
     
@@ -564,7 +590,15 @@
             }
             
             try {
-                const description = prompt('Mô tả cho backup này:');
+                const description = await app.showInputModal({
+                    title: '💾 Tạo Backup',
+                    message: 'Nhập mô tả cho bản sao lưu của bạn:',
+                    label: 'Mô tả backup:',
+                    type: 'text',
+                    defaultValue: 'Backup thủ công',
+                    placeholder: 'VD: Backup trước khi cập nhật...',
+                    hint: 'Mô tả sẽ giúp bạn nhận biết backup sau này.'
+                });
                 if (!description) return;
                 
                 showMigrationBanner('Đang tạo backup...', 10);
@@ -583,7 +617,9 @@
                 alert('Tạo backup thành công!');
             } catch (error) {
                 hideMigrationBanner();
-                alert('Lỗi tạo backup: ' + error.message);
+                if (error.message !== 'User cancelled') {
+                    alert('Lỗi tạo backup: ' + error.message);
+                }
             }
         }
         
@@ -645,6 +681,21 @@
             if (cancelDelete) {
                 cancelDelete.addEventListener('click', () => {
                     if (app && app.hideModal) app.hideModal();
+                });
+            }
+
+            // Setup input modal actions
+            const inputModalConfirm = document.getElementById('inputModalConfirm');
+            if (inputModalConfirm) {
+                inputModalConfirm.addEventListener('click', () => {
+                    if (app && app.closeInputModal) app.closeInputModal(true);
+                });
+            }
+            
+            const inputModalCancel = document.getElementById('inputModalCancel');
+            if (inputModalCancel) {
+                inputModalCancel.addEventListener('click', () => {
+                    if (app && app.closeInputModal) app.closeInputModal(false);
                 });
             }
             
@@ -802,6 +853,142 @@
             background: #f9f9f9;
             border-radius: 4px;
             min-height: 50px;
+        }
+        
+        /* Input Modal Styles */
+        .input-modal {
+            max-width: 500px;
+            width: 90%;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: #333;
+            font-size: 1.4em;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        
+        .modal-close:hover {
+            background: #f5f5f5;
+            color: #666;
+        }
+        
+        .modal-body {
+            margin-bottom: 25px;
+        }
+        
+        .modal-body p {
+            margin: 0 0 15px 0;
+            color: #555;
+            line-height: 1.5;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 0.95em;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+        }
+        
+        .input-field:invalid {
+            border-color: #f44336;
+        }
+        
+        .input-hint {
+            margin-top: 8px;
+            font-size: 0.85em;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        
+        .modal-actions .btn {
+            min-width: 100px;
+            padding: 10px 20px;
+        }
+        
+        /* Animation for input modal */
+        .input-modal.modal-content {
+            animation: modalSlideIn 0.3s ease;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .input-modal {
+                width: 95%;
+                margin: 10px;
+            }
+            
+            .modal-actions {
+                flex-direction: column;
+            }
+            
+            .modal-actions .btn {
+                width: 100%;
+            }
         }
     </style>
 </body>

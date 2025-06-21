@@ -405,6 +405,76 @@ class VocabularyApp {
         document.getElementById('deleteModal').classList.remove('show');
     }
 
+    // Beautiful Input Modal Methods
+    showInputModal(options) {
+        return new Promise((resolve, reject) => {
+            const modal = document.getElementById('inputModal');
+            const title = document.getElementById('inputModalTitle');
+            const message = document.getElementById('inputModalMessage');
+            const label = document.getElementById('inputModalLabel');
+            const field = document.getElementById('inputModalField');
+            const hint = document.getElementById('inputModalHint');
+            const confirmBtn = document.getElementById('inputModalConfirm');
+            const cancelBtn = document.getElementById('inputModalCancel');
+
+            // Set content
+            title.textContent = options.title || 'Nhập thông tin';
+            message.textContent = options.message || 'Vui lòng nhập thông tin:';
+            label.textContent = options.label || 'Giá trị:';
+            field.placeholder = options.placeholder || '';
+            field.value = options.defaultValue || '';
+            hint.textContent = options.hint || '';
+            
+            // Set input type and validation
+            field.type = options.type || 'text';
+            if (options.min !== undefined) field.min = options.min;
+            if (options.max !== undefined) field.max = options.max;
+            if (options.step !== undefined) field.step = options.step;
+
+            // Store resolve/reject for later use
+            this.currentInputResolve = resolve;
+            this.currentInputReject = reject;
+
+            // Show modal
+            modal.style.display = 'flex';
+            
+            // Focus input field
+            setTimeout(() => field.focus(), 100);
+
+            // Handle enter key
+            const handleEnter = (e) => {
+                if (e.key === 'Enter') {
+                    confirmBtn.click();
+                }
+            };
+            field.addEventListener('keydown', handleEnter);
+
+            // Clean up function
+            this.inputModalCleanup = () => {
+                field.removeEventListener('keydown', handleEnter);
+                modal.style.display = 'none';
+            };
+        });
+    }
+
+    closeInputModal(confirmed = false) {
+        const field = document.getElementById('inputModalField');
+        const value = field.value.trim();
+
+        if (this.inputModalCleanup) {
+            this.inputModalCleanup();
+        }
+
+        if (confirmed && this.currentInputResolve) {
+            this.currentInputResolve(value);
+        } else if (this.currentInputReject) {
+            this.currentInputReject(new Error('User cancelled'));
+        }
+
+        this.currentInputResolve = null;
+        this.currentInputReject = null;
+    }
+
     // Lesson Management Methods
     renderLessonsList() {
         const lessonsList = document.getElementById('lessonsList');
@@ -567,7 +637,7 @@ class VocabularyApp {
         document.getElementById('addLessonForm').reset();
     }
 
-    startQuiz() {
+    async startQuiz() {
         const selectedWords = this.getSelectedPracticeWords('quiz');
         
         if (selectedWords.length < 4) {
@@ -575,14 +645,27 @@ class VocabularyApp {
             return;
         }
 
-        // Get custom number of questions
-        const customQuestions = prompt(`Nhập số câu hỏi muốn làm (tối đa ${selectedWords.length} từ có sẵn):`, '20');
-        if (customQuestions === null) return; // User cancelled
-        
-        const quizLength = parseInt(customQuestions);
-        if (isNaN(quizLength) || quizLength <= 0) {
-            this.showMessage('Số câu hỏi không hợp lệ!', 'error');
-            return;
+        // Get custom number of questions with beautiful modal
+        try {
+            const customQuestions = await this.showInputModal({
+                title: '🎯 Tùy chỉnh Quiz',
+                message: 'Bạn muốn làm bao nhiêu câu hỏi?',
+                label: 'Số câu hỏi:',
+                type: 'number',
+                min: 1,
+                max: Math.max(selectedWords.length * 3, 100),
+                defaultValue: '20',
+                placeholder: 'VD: 20',
+                hint: `Tối đa ${selectedWords.length} từ có sẵn. Nếu nhập nhiều hơn, từ sẽ được lặp lại.`
+            });
+            
+            const quizLength = parseInt(customQuestions);
+            if (isNaN(quizLength) || quizLength <= 0) {
+                this.showMessage('Số câu hỏi không hợp lệ!', 'error');
+                return;
+            }
+        } catch (error) {
+            return; // User cancelled
         }
 
         const quizMode = document.getElementById('quizMode').value;
@@ -1744,7 +1827,7 @@ class VocabularyApp {
     }
 
     // Spelling Test Implementation
-    startSpellingTest() {
+    async startSpellingTest() {
         const selectedWords = this.getSelectedPracticeWords('spelling');
         
         if (selectedWords.length === 0) {
@@ -1752,14 +1835,28 @@ class VocabularyApp {
             return;
         }
 
-        // Get custom number of words
-        const customWords = prompt(`Nhập số từ muốn kiểm tra (tối đa ${selectedWords.length} từ có sẵn):`, '15');
-        if (customWords === null) return; // User cancelled
-        
-        const numWords = parseInt(customWords);
-        if (isNaN(numWords) || numWords <= 0) {
-            this.showMessage('Số từ không hợp lệ!', 'error');
-            return;
+        // Get custom number of words with beautiful modal
+        let numWords;
+        try {
+            const customWords = await this.showInputModal({
+                title: '✏️ Tùy chỉnh Spelling Test',
+                message: 'Bạn muốn kiểm tra bao nhiêu từ?',
+                label: 'Số từ kiểm tra:',
+                type: 'number',
+                min: 1,
+                max: Math.max(selectedWords.length * 2, 50),
+                defaultValue: '15',
+                placeholder: 'VD: 15',
+                hint: `Tối đa ${selectedWords.length} từ có sẵn. Nếu nhập nhiều hơn, từ sẽ được lặp lại.`
+            });
+            
+            numWords = parseInt(customWords);
+            if (isNaN(numWords) || numWords <= 0) {
+                this.showMessage('Số từ không hợp lệ!', 'error');
+                return;
+            }
+        } catch (error) {
+            return; // User cancelled
         }
 
         // Generate words with repetition if needed
@@ -2378,7 +2475,7 @@ class VocabularyApp {
     }
 
     // Listening Practice Implementation
-    startListeningPractice() {
+    async startListeningPractice() {
         const selectedWords = this.getSelectedPracticeWords('listening');
         
         if (selectedWords.length === 0) {
@@ -2386,14 +2483,28 @@ class VocabularyApp {
             return;
         }
 
-        // Get custom number of questions
-        const customQuestions = prompt(`Nhập số câu hỏi muốn luyện (tối đa ${selectedWords.length} từ có sẵn):`, '20');
-        if (customQuestions === null) return; // User cancelled
-        
-        const numQuestions = parseInt(customQuestions);
-        if (isNaN(numQuestions) || numQuestions <= 0) {
-            this.showMessage('Số câu hỏi không hợp lệ!', 'error');
-            return;
+        // Get custom number of questions with beautiful modal
+        let numQuestions;
+        try {
+            const customQuestions = await this.showInputModal({
+                title: '🎧 Tùy chỉnh Listening Practice',
+                message: 'Bạn muốn luyện bao nhiêu câu hỏi?',
+                label: 'Số câu hỏi:',
+                type: 'number',
+                min: 1,
+                max: Math.max(selectedWords.length * 3, 100),
+                defaultValue: '20',
+                placeholder: 'VD: 20',
+                hint: `Tối đa ${selectedWords.length} từ có sẵn. Nếu nhập nhiều hơn, từ sẽ được lặp lại.`
+            });
+            
+            numQuestions = parseInt(customQuestions);
+            if (isNaN(numQuestions) || numQuestions <= 0) {
+                this.showMessage('Số câu hỏi không hợp lệ!', 'error');
+                return;
+            }
+        } catch (error) {
+            return; // User cancelled
         }
 
         // Generate questions with repetition if needed
@@ -2903,7 +3014,15 @@ class VocabularyAppIndexedDB extends VocabularyApp {
     // Backup and management methods
     async createManualBackup() {
         try {
-            const description = prompt('Nhập mô tả cho bản sao lưu (tùy chọn):') || 'Sao lưu thủ công';
+            const description = await this.showInputModal({
+            title: '💾 Tạo Backup',
+            message: 'Nhập mô tả cho bản sao lưu của bạn:',
+            label: 'Mô tả backup:',
+            type: 'text',
+            defaultValue: 'Sao lưu thủ công',
+            placeholder: 'VD: Backup trước khi cập nhật...',
+            hint: 'Mô tả sẽ giúp bạn nhận biết backup sau này.'
+        });
             const backupId = await this.storage.createBackup(description);
             this.showMessage('Tạo sao lưu thành công!', 'success');
             
