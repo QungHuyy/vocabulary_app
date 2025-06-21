@@ -14,6 +14,24 @@ class VocabularyApp {
         this.reviewWords = [];
         this.selectedReviewLessons = [];
         
+        // Practice modes
+        this.currentPracticeMode = null;
+        this.currentFlashcards = null;
+        this.currentSpellingTest = null;
+        this.currentMatchingGame = null;
+        this.currentSpeedChallenge = null;
+        this.currentListeningPractice = null;
+        
+        // Selected lessons for each practice mode
+        this.selectedPracticeLessons = {
+            quiz: [],
+            flashcards: [],
+            spelling: [],
+            matching: [],
+            speed: [],
+            listening: []
+        };
+        
         // Autocomplete and translation
         this.commonWords = [];
         this.currentSuggestionIndex = -1;
@@ -42,6 +60,23 @@ class VocabularyApp {
         // Load sample data if no lessons exist
         if (this.lessons.length === 0) {
             this.loadSampleData();
+        } else {
+            // Initialize practice lesson selections from localStorage or default to all
+            const savedPracticeLessons = localStorage.getItem('selectedPracticeLessons');
+            if (savedPracticeLessons) {
+                this.selectedPracticeLessons = JSON.parse(savedPracticeLessons);
+            } else {
+                const allLessonIds = this.lessons.map(lesson => lesson.id);
+                this.selectedPracticeLessons = {
+                    quiz: [...allLessonIds],
+                    flashcards: [...allLessonIds],
+                    spelling: [...allLessonIds],
+                    matching: [...allLessonIds],
+                    speed: [...allLessonIds],
+                    listening: [...allLessonIds]
+                };
+                this.saveToStorage();
+            }
         }
     }
 
@@ -114,6 +149,17 @@ class VocabularyApp {
         this.words = sampleWords;
         this.currentLessonId = 'lesson-1';
         
+        // Initialize practice lesson selections - select all by default
+        const allLessonIds = this.lessons.map(lesson => lesson.id);
+        this.selectedPracticeLessons = {
+            quiz: [...allLessonIds],
+            flashcards: [...allLessonIds],
+            spelling: [...allLessonIds],
+            matching: [...allLessonIds],
+            speed: [...allLessonIds],
+            listening: [...allLessonIds]
+        };
+        
         this.saveToStorage();
         this.updateStats();
         this.renderWordsList();
@@ -143,6 +189,13 @@ class VocabularyApp {
         // Quiz
         document.getElementById('startQuiz').addEventListener('click', () => this.startQuiz());
 
+        // Practice modes
+        document.getElementById('startFlashcards').addEventListener('click', () => this.startFlashcards());
+        document.getElementById('startSpelling').addEventListener('click', () => this.startSpellingTest());
+        document.getElementById('startMatching').addEventListener('click', () => this.startMatchingGame());
+        document.getElementById('startSpeed').addEventListener('click', () => this.startSpeedChallenge());
+        document.getElementById('startListening').addEventListener('click', () => this.startListeningPractice());
+
         // Review
         document.getElementById('startReview').addEventListener('click', () => this.startReview());
         document.getElementById('shuffleReview').addEventListener('click', () => this.shuffleReview());
@@ -153,6 +206,12 @@ class VocabularyApp {
     }
 
     switchTab(tabName) {
+        // Remove flashcard keyboard listeners when switching tabs
+        if (this.flashcardKeyHandler) {
+            document.removeEventListener('keydown', this.flashcardKeyHandler);
+            this.flashcardKeyHandler = null;
+        }
+        
         // Update tab buttons
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
@@ -533,17 +592,10 @@ class VocabularyApp {
     }
 
     startQuiz() {
-        // Get words from current lesson if selected
-        let availableWords = this.words;
-        if (this.currentLessonId) {
-            availableWords = this.words.filter(word => word.lessonId === this.currentLessonId);
-        }
+        const selectedWords = this.getSelectedPracticeWords('quiz');
         
-        if (availableWords.length < 4) {
-            const message = this.currentLessonId 
-                ? 'Bài học hiện tại cần ít nhất 4 từ vựng để bắt đầu quiz!' 
-                : 'Cần ít nhất 4 từ vựng để bắt đầu quiz!';
-            this.showMessage(message, 'error');
+        if (selectedWords.length < 4) {
+            this.showMessage('Vui lòng chọn ít nhất một bài học có từ 4 từ vựng trở lên để bắt đầu quiz!', 'error');
             return;
         }
 
@@ -551,8 +603,8 @@ class VocabularyApp {
         const quizMode = document.getElementById('quizMode').value;
         
         // Shuffle words and select quiz length
-        const shuffledWords = [...availableWords].sort(() => Math.random() - 0.5);
-        const quizWords = shuffledWords.slice(0, Math.min(quizLength, availableWords.length));
+        const shuffledWords = [...selectedWords].sort(() => Math.random() - 0.5);
+        const quizWords = shuffledWords.slice(0, Math.min(quizLength, selectedWords.length));
         
         this.currentQuiz = {
             words: quizWords,
@@ -612,7 +664,9 @@ class VocabularyApp {
     }
 
     generateWrongAnswers(correctAnswer, isVietnamese) {
-        const allAnswers = this.words.map(word => isVietnamese ? word.vietnamese : word.english);
+        // Use selected words for generating wrong answers
+        const selectedWords = this.getSelectedPracticeWords('quiz');
+        const allAnswers = selectedWords.map(word => isVietnamese ? word.vietnamese : word.english);
         const wrongAnswers = allAnswers.filter(answer => answer !== correctAnswer);
         
         // Shuffle and take 3 random wrong answers
@@ -808,6 +862,7 @@ class VocabularyApp {
         localStorage.setItem('vocabularyLessons', JSON.stringify(this.lessons));
         localStorage.setItem('currentLessonId', this.currentLessonId || '');
         localStorage.setItem('quizProgress', JSON.stringify(this.quizProgress));
+        localStorage.setItem('selectedPracticeLessons', JSON.stringify(this.selectedPracticeLessons));
     }
 
     showMessage(message, type) {
@@ -1262,6 +1317,1025 @@ class VocabularyApp {
             statusElement.innerHTML = '';
             statusElement.className = 'translation-status';
         }
+    }
+
+    // Practice Mode Management
+    selectPracticeMode(mode) {
+        this.currentPracticeMode = mode;
+        
+        // Hide mode selector
+        document.querySelector('.practice-mode-selector').style.display = 'none';
+        
+        // Show selected practice content
+        document.querySelectorAll('.practice-content').forEach(content => {
+            content.style.display = 'none';
+        });
+        document.getElementById(`${mode}-content`).style.display = 'block';
+        
+        // Render lesson checkboxes for this practice mode
+        this.renderPracticeLessonCheckboxes(mode);
+    }
+
+    backToModeSelector() {
+        this.currentPracticeMode = null;
+        
+        // Remove flashcard keyboard listeners
+        if (this.flashcardKeyHandler) {
+            document.removeEventListener('keydown', this.flashcardKeyHandler);
+            this.flashcardKeyHandler = null;
+        }
+        
+        // Reset any active practice
+        this.resetFlashcards();
+        this.resetSpellingTest();
+        this.resetMatchingGame();
+        this.resetSpeedChallenge();
+        this.resetListeningPractice();
+        
+        // Show mode selector
+        document.querySelector('.practice-mode-selector').style.display = 'block';
+        
+        // Hide all practice contents
+        document.querySelectorAll('.practice-content').forEach(content => {
+            content.style.display = 'none';
+        });
+    }
+
+    // Flashcards Implementation
+    startFlashcards() {
+        const selectedWords = this.getSelectedPracticeWords('flashcards');
+        
+        if (selectedWords.length === 0) {
+            this.showMessage('Vui lòng chọn ít nhất một bài học để luyện tập!', 'error');
+            return;
+        }
+
+        this.currentFlashcards = {
+            words: [...selectedWords].sort(() => Math.random() - 0.5),
+            currentIndex: 0,
+            isFlipped: false,
+            rememberedWords: new Set(),
+            notRememberedWords: new Set(),
+            isReviewingForgotten: false,
+            forgottenWords: []
+        };
+
+        // Add keyboard event listeners
+        this.setupFlashcardKeyboardListeners();
+        this.renderFlashcard();
+    }
+
+    renderFlashcard() {
+        const container = document.getElementById('flashcardsContent');
+        const currentWord = this.currentFlashcards.words[this.currentFlashcards.currentIndex];
+        
+        // Always show English first
+        const frontText = currentWord.english;
+        const backText = currentWord.vietnamese;
+        
+        container.innerHTML = `
+            <div class="flashcard-progress">
+                ${this.currentFlashcards.currentIndex + 1} / ${this.currentFlashcards.words.length}
+                ${this.currentFlashcards.isReviewingForgotten ? ' (Ôn tập từ chưa nhớ)' : ''}
+            </div>
+            
+            <div class="flashcard-instructions">
+                <p><strong>Phím tắt:</strong> SPACE (lật thẻ) | ← (chưa nhớ) | → (đã nhớ)</p>
+            </div>
+            
+            <div class="flashcard ${this.currentFlashcards.isFlipped ? 'flipped' : ''}" onclick="app.flipFlashcard()">
+                <div class="flashcard-front">
+                    <div class="flashcard-word">${frontText}</div>
+                    <button class="pronunciation-btn" onclick="event.stopPropagation(); app.speakWord('${currentWord.english}')" title="Phát âm">
+                        <i class="fas fa-volume-up"></i>
+                    </button>
+                </div>
+                <div class="flashcard-back">
+                    <div class="flashcard-meaning">${backText}</div>
+                    ${currentWord.example ? `<p style="margin-top: 15px; font-size: 1rem; font-style: italic;">${currentWord.example}</p>` : ''}
+                </div>
+            </div>
+            
+            <div class="flashcard-status">
+                <p>Đã nhớ: ${this.currentFlashcards.rememberedWords.size} | Chưa nhớ: ${this.currentFlashcards.notRememberedWords.size}</p>
+            </div>
+        `;
+        
+        // Auto-pronounce English word when showing front
+        if (!this.currentFlashcards.isFlipped) {
+            setTimeout(() => {
+                this.speakWord(currentWord.english);
+            }, 500);
+        }
+    }
+
+    setupFlashcardKeyboardListeners() {
+        // Remove existing listeners first
+        if (this.flashcardKeyHandler) {
+            document.removeEventListener('keydown', this.flashcardKeyHandler);
+        }
+        
+        this.flashcardKeyHandler = (e) => {
+            if (!this.currentFlashcards) return;
+            
+            switch(e.code) {
+                case 'Space':
+                    e.preventDefault();
+                    this.flipFlashcard();
+                    break;
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    this.markWordAsNotRemembered();
+                    break;
+                case 'ArrowRight':
+                    e.preventDefault();
+                    this.markWordAsRemembered();
+                    break;
+            }
+        };
+        
+        document.addEventListener('keydown', this.flashcardKeyHandler);
+    }
+
+    flipFlashcard() {
+        this.currentFlashcards.isFlipped = !this.currentFlashcards.isFlipped;
+        this.renderFlashcard();
+    }
+
+    markWordAsRemembered() {
+        const currentWord = this.currentFlashcards.words[this.currentFlashcards.currentIndex];
+        this.currentFlashcards.rememberedWords.add(currentWord.id);
+        this.currentFlashcards.notRememberedWords.delete(currentWord.id);
+        this.nextFlashcard();
+    }
+
+    markWordAsNotRemembered() {
+        const currentWord = this.currentFlashcards.words[this.currentFlashcards.currentIndex];
+        this.currentFlashcards.notRememberedWords.add(currentWord.id);
+        this.currentFlashcards.rememberedWords.delete(currentWord.id);
+        this.nextFlashcard();
+    }
+
+    nextFlashcard() {
+        if (this.currentFlashcards.currentIndex < this.currentFlashcards.words.length - 1) {
+            this.currentFlashcards.currentIndex++;
+            this.currentFlashcards.isFlipped = false;
+            this.renderFlashcard();
+        } else {
+            // Check if we need to review forgotten words
+            if (!this.currentFlashcards.isReviewingForgotten && this.currentFlashcards.notRememberedWords.size > 0) {
+                this.startForgottenWordsReview();
+            } else {
+                this.finishFlashcards();
+            }
+        }
+    }
+
+    startForgottenWordsReview() {
+        // Create array of forgotten words
+        this.currentFlashcards.forgottenWords = this.currentFlashcards.words.filter(word => 
+            this.currentFlashcards.notRememberedWords.has(word.id)
+        );
+        
+        if (this.currentFlashcards.forgottenWords.length === 0) {
+            this.finishFlashcards();
+            return;
+        }
+        
+        // Shuffle forgotten words
+        this.currentFlashcards.forgottenWords.sort(() => Math.random() - 0.5);
+        
+        // Switch to forgotten words review
+        this.currentFlashcards.words = this.currentFlashcards.forgottenWords;
+        this.currentFlashcards.currentIndex = 0;
+        this.currentFlashcards.isFlipped = false;
+        this.currentFlashcards.isReviewingForgotten = true;
+        
+        this.renderFlashcard();
+        this.showMessage('Bắt đầu ôn tập các từ chưa nhớ!', 'info');
+    }
+
+    finishFlashcards() {
+        // Remove keyboard listeners
+        if (this.flashcardKeyHandler) {
+            document.removeEventListener('keydown', this.flashcardKeyHandler);
+            this.flashcardKeyHandler = null;
+        }
+        
+        const totalWords = this.currentFlashcards.isReviewingForgotten ? 
+            this.currentFlashcards.forgottenWords.length : 
+            [...new Set([...Array.from(this.currentFlashcards.rememberedWords), ...Array.from(this.currentFlashcards.notRememberedWords)])].length;
+        
+        const rememberedCount = this.currentFlashcards.rememberedWords.size;
+        const notRememberedCount = this.currentFlashcards.notRememberedWords.size;
+        
+        const container = document.getElementById('flashcardsContent');
+        container.innerHTML = `
+            <div class="practice-result">
+                <h3><i class="fas fa-check-circle" style="color: #28a745;"></i> Hoàn thành Flashcards!</h3>
+                <div class="flashcard-summary">
+                    <p><strong>Tổng số từ:</strong> ${totalWords}</p>
+                    <p><strong>Đã nhớ:</strong> ${rememberedCount} từ</p>
+                    <p><strong>Chưa nhớ:</strong> ${notRememberedCount} từ</p>
+                    <p><strong>Tỷ lệ nhớ:</strong> ${totalWords > 0 ? Math.round((rememberedCount / totalWords) * 100) : 0}%</p>
+                </div>
+                <button class="btn btn-primary" onclick="app.startFlashcards()">
+                    <i class="fas fa-redo"></i> Luyện lại
+                </button>
+                <button class="btn btn-secondary" onclick="app.backToModeSelector()">
+                    <i class="fas fa-arrow-left"></i> Chọn chế độ khác
+                </button>
+            </div>
+        `;
+    }
+
+    resetFlashcards() {
+        // Remove keyboard listeners
+        if (this.flashcardKeyHandler) {
+            document.removeEventListener('keydown', this.flashcardKeyHandler);
+            this.flashcardKeyHandler = null;
+        }
+        
+        this.currentFlashcards = null;
+        const container = document.getElementById('flashcardsContent');
+        if (container) {
+            container.innerHTML = `
+                <div class="flashcards-start">
+                    <p>Lật thẻ để học từ vựng một cách hiệu quả!</p>
+                    <p><strong>Hướng dẫn:</strong> SPACE (lật thẻ) | ← (chưa nhớ) | → (đã nhớ)</p>
+                    <button id="startFlashcards" class="btn btn-primary">
+                        <i class="fas fa-play"></i> Bắt đầu Flashcards
+                    </button>
+                </div>
+            `;
+            document.getElementById('startFlashcards').addEventListener('click', () => this.startFlashcards());
+        }
+    }
+
+    // Spelling Test Implementation
+    startSpellingTest() {
+        const selectedWords = this.getSelectedPracticeWords('spelling');
+        
+        if (selectedWords.length === 0) {
+            this.showMessage('Vui lòng chọn ít nhất một bài học để luyện tập!', 'error');
+            return;
+        }
+
+        const length = parseInt(document.getElementById('spellingLength').value);
+        this.currentSpellingTest = {
+            words: [...selectedWords].sort(() => Math.random() - 0.5).slice(0, Math.min(length, selectedWords.length)),
+            currentIndex: 0,
+            correctAnswers: 0,
+            userAnswers: []
+        };
+
+        this.renderSpellingQuestion();
+    }
+
+    renderSpellingQuestion() {
+        const container = document.getElementById('spellingContent');
+        const currentWord = this.currentSpellingTest.words[this.currentSpellingTest.currentIndex];
+        
+        // Determine question type randomly for each word
+        if (!currentWord.spellingType) {
+            currentWord.spellingType = Math.random() < 0.5 ? 'en-spell' : 'vi-spell';
+        }
+        
+        const isEnSpell = currentWord.spellingType === 'en-spell';
+        let questionText, audioWord, hintText, placeholder, correctAnswer;
+        
+        if (isEnSpell) {
+            questionText = 'Nghe từ tiếng Anh và viết chính tả:';
+            audioWord = currentWord.english;
+            hintText = `Nghĩa: ${currentWord.vietnamese}`;
+            placeholder = 'Nhập từ tiếng Anh...';
+            correctAnswer = currentWord.english;
+        } else {
+            questionText = 'Nghe nghĩa tiếng Việt và viết từ tiếng Anh:';
+            audioWord = currentWord.vietnamese;
+            hintText = `Nghĩa tiếng Việt: ${currentWord.vietnamese}`;
+            placeholder = 'Nhập từ tiếng Anh...';
+            correctAnswer = currentWord.english;
+        }
+        
+        container.innerHTML = `
+            <div class="spelling-progress">
+                <p>Câu ${this.currentSpellingTest.currentIndex + 1} / ${this.currentSpellingTest.words.length}</p>
+            </div>
+            
+            <div class="spelling-question">
+                <p>${questionText}</p>
+                <div class="spelling-audio-container">
+                    <button class="listening-audio-btn" onclick="app.speakWord('${audioWord}')" title="Nghe lại">
+                        <i class="fas fa-volume-up"></i> Nghe
+                    </button>
+                    ${!isEnSpell ? `
+                        <div class="spelling-hint-text">${hintText}</div>
+                    ` : ''}
+                </div>
+                ${isEnSpell ? `<p style="color: #666; margin-bottom: 20px;">${hintText}</p>` : ''}
+                <input type="text" class="spelling-input" id="spellingInput" placeholder="${placeholder}" onkeypress="app.handleSpellingKeyPress(event)">
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="app.checkSpelling()">
+                    <i class="fas fa-check"></i> Kiểm tra
+                </button>
+            </div>
+        `;
+        
+        document.getElementById('spellingInput').focus();
+        
+        // Auto play the audio
+        setTimeout(() => {
+            this.speakWord(audioWord);
+        }, 500);
+    }
+
+    handleSpellingKeyPress(event) {
+        if (event.key === 'Enter') {
+            this.checkSpelling();
+        }
+    }
+
+    checkSpelling() {
+        const input = document.getElementById('spellingInput');
+        const userAnswer = input.value.trim().toLowerCase();
+        const correctAnswer = this.currentSpellingTest.words[this.currentSpellingTest.currentIndex].english.toLowerCase();
+        
+        const isCorrect = userAnswer === correctAnswer;
+        this.currentSpellingTest.userAnswers.push({
+            word: this.currentSpellingTest.words[this.currentSpellingTest.currentIndex],
+            userAnswer: input.value.trim(),
+            correct: isCorrect
+        });
+        
+        if (isCorrect) {
+            this.currentSpellingTest.correctAnswers++;
+            input.classList.add('correct');
+            input.classList.remove('incorrect');
+        } else {
+            input.classList.add('incorrect');
+            input.classList.remove('correct');
+        }
+        
+        setTimeout(() => {
+            if (this.currentSpellingTest.currentIndex < this.currentSpellingTest.words.length - 1) {
+                this.currentSpellingTest.currentIndex++;
+                this.renderSpellingQuestion();
+            } else {
+                this.finishSpellingTest();
+            }
+        }, 1500);
+    }
+
+    finishSpellingTest() {
+        const accuracy = Math.round((this.currentSpellingTest.correctAnswers / this.currentSpellingTest.words.length) * 100);
+        const container = document.getElementById('spellingContent');
+        
+        let resultHtml = `
+            <div class="practice-result">
+                <h3><i class="fas fa-spell-check" style="color: #4facfe;"></i> Kết quả Spelling Test</h3>
+                <div class="quiz-score">${accuracy}%</div>
+                <p>Đúng ${this.currentSpellingTest.correctAnswers} / ${this.currentSpellingTest.words.length} từ</p>
+                
+                <div style="margin-top: 20px; text-align: left;">
+                    <h4>Chi tiết:</h4>
+        `;
+        
+        this.currentSpellingTest.userAnswers.forEach(answer => {
+            const icon = answer.correct ? 
+                '<i class="fas fa-check-circle" style="color: #28a745;"></i>' : 
+                '<i class="fas fa-times-circle" style="color: #dc3545;"></i>';
+            
+            resultHtml += `
+                <div style="margin-bottom: 10px; padding: 10px; background: #f8f9fa; border-radius: 8px;">
+                    ${icon} <strong>${answer.word.english}</strong> - ${answer.word.vietnamese}
+                    ${!answer.correct ? `<br><span style="color: #dc3545;">Bạn viết: ${answer.userAnswer}</span>` : ''}
+                </div>
+            `;
+        });
+        
+        resultHtml += `
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="app.startSpellingTest()">
+                        <i class="fas fa-redo"></i> Luyện lại
+                    </button>
+                    <button class="btn btn-secondary" onclick="app.backToModeSelector()">
+                        <i class="fas fa-arrow-left"></i> Chọn chế độ khác
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        container.innerHTML = resultHtml;
+    }
+
+    resetSpellingTest() {
+        this.currentSpellingTest = null;
+        const container = document.getElementById('spellingContent');
+        if (container) {
+            container.innerHTML = `
+                <div class="spelling-start">
+                    <p>Nghe và viết đúng từ vựng!</p>
+                    <button id="startSpelling" class="btn btn-primary">
+                        <i class="fas fa-play"></i> Bắt đầu Spelling Test
+                    </button>
+                </div>
+            `;
+            document.getElementById('startSpelling').addEventListener('click', () => this.startSpellingTest());
+        }
+    }
+
+    // Matching Game Implementation
+    startMatchingGame() {
+        const selectedWords = this.getSelectedPracticeWords('matching');
+        
+        if (selectedWords.length < 4) {
+            this.showMessage('Cần ít nhất 4 từ vựng từ bài học đã chọn để chơi trò chơi ghép từ!', 'error');
+            return;
+        }
+
+        const gameWords = [...selectedWords].sort(() => Math.random() - 0.5).slice(0, Math.min(8, selectedWords.length));
+        
+        // Randomly determine column order
+        const isEnglishFirst = Math.random() < 0.5;
+        
+        this.currentMatchingGame = {
+            words: gameWords,
+            leftWords: gameWords.map(w => ({ 
+                ...w, 
+                type: isEnglishFirst ? 'english' : 'vietnamese', 
+                matched: false,
+                displayText: isEnglishFirst ? w.english : w.vietnamese
+            })),
+            rightWords: gameWords.map(w => ({ 
+                ...w, 
+                type: isEnglishFirst ? 'vietnamese' : 'english', 
+                matched: false,
+                displayText: isEnglishFirst ? w.vietnamese : w.english
+            })).sort(() => Math.random() - 0.5),
+            selectedItem: null,
+            score: 0,
+            attempts: 0,
+            isEnglishFirst: isEnglishFirst
+        };
+
+        this.renderMatchingGame();
+    }
+
+    renderMatchingGame() {
+        const container = document.getElementById('matchingContent');
+        const game = this.currentMatchingGame;
+        
+        const leftTitle = game.isEnglishFirst ? 'Tiếng Anh' : 'Tiếng Việt';
+        const rightTitle = game.isEnglishFirst ? 'Tiếng Việt' : 'Tiếng Anh';
+        
+        container.innerHTML = `
+            <div class="matching-progress">
+                <p>Điểm: ${game.score} / ${game.words.length}</p>
+                <p>Số lần thử: ${game.attempts}</p>
+            </div>
+            
+            <div class="matching-game">
+                <div class="matching-column">
+                    <h4>${leftTitle}</h4>
+                    ${game.leftWords.map((word, index) => `
+                        <div class="matching-item ${word.matched ? 'matched' : ''}" 
+                             onclick="app.selectMatchingItem('left', ${index})" 
+                             data-id="${word.id}">
+                            ${word.displayText}
+                            ${word.type === 'english' ? `
+                                <button class="pronunciation-btn-small" onclick="event.stopPropagation(); app.speakWord('${word.english}')" title="Phát âm">
+                                    <i class="fas fa-volume-up"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="matching-column">
+                    <h4>${rightTitle}</h4>
+                    ${game.rightWords.map((word, index) => `
+                        <div class="matching-item ${word.matched ? 'matched' : ''}" 
+                             onclick="app.selectMatchingItem('right', ${index})" 
+                             data-id="${word.id}">
+                            ${word.displayText}
+                            ${word.type === 'english' ? `
+                                <button class="pronunciation-btn-small" onclick="event.stopPropagation(); app.speakWord('${word.english}')" title="Phát âm">
+                                    <i class="fas fa-volume-up"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    selectMatchingItem(side, index) {
+        const item = this.currentMatchingGame[side + 'Words'][index];
+        
+        if (item.matched) return;
+        
+        // Clear previous selections
+        document.querySelectorAll('.matching-item').forEach(el => {
+            el.classList.remove('selected', 'wrong');
+        });
+        
+        if (this.currentMatchingGame.selectedItem) {
+            if (this.currentMatchingGame.selectedItem.side === side && 
+                this.currentMatchingGame.selectedItem.index === index) {
+                // Deselect if clicking the same item
+                this.currentMatchingGame.selectedItem = null;
+                return;
+            }
+            
+            // Check if it's a match
+            const selected = this.currentMatchingGame.selectedItem;
+            if (selected.side !== side && selected.item.id === item.id) {
+                // It's a match!
+                this.currentMatchingGame.score++;
+                this.currentMatchingGame.attempts++;
+                
+                // Mark as matched
+                this.currentMatchingGame.leftWords.find(w => w.id === item.id).matched = true;
+                this.currentMatchingGame.rightWords.find(w => w.id === item.id).matched = true;
+                
+                this.currentMatchingGame.selectedItem = null;
+                
+                if (this.currentMatchingGame.score === this.currentMatchingGame.words.length) {
+                    setTimeout(() => this.finishMatchingGame(), 500);
+                } else {
+                    this.renderMatchingGame();
+                }
+                return;
+            } else {
+                // Wrong match
+                this.currentMatchingGame.attempts++;
+                
+                // Show wrong animation
+                document.querySelector(`[data-id="${selected.item.id}"]`).classList.add('wrong');
+                document.querySelector(`[data-id="${item.id}"]`).classList.add('wrong');
+                
+                setTimeout(() => {
+                    this.currentMatchingGame.selectedItem = null;
+                    this.renderMatchingGame();
+                }, 1000);
+                return;
+            }
+        } else {
+            // First selection
+            this.currentMatchingGame.selectedItem = { side, index, item };
+            document.querySelector(`[data-id="${item.id}"]`).classList.add('selected');
+        }
+    }
+
+    finishMatchingGame() {
+        const accuracy = Math.round((this.currentMatchingGame.score / this.currentMatchingGame.attempts) * 100);
+        const container = document.getElementById('matchingContent');
+        
+        container.innerHTML = `
+            <div class="practice-result">
+                <h3><i class="fas fa-puzzle-piece" style="color: #4facfe;"></i> Hoàn thành Matching Game!</h3>
+                <div class="quiz-score">${accuracy}%</div>
+                <p>Ghép đúng ${this.currentMatchingGame.score} / ${this.currentMatchingGame.words.length} cặp</p>
+                <p>Số lần thử: ${this.currentMatchingGame.attempts}</p>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="app.startMatchingGame()">
+                        <i class="fas fa-redo"></i> Chơi lại
+                    </button>
+                    <button class="btn btn-secondary" onclick="app.backToModeSelector()">
+                        <i class="fas fa-arrow-left"></i> Chọn chế độ khác
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    resetMatchingGame() {
+        this.currentMatchingGame = null;
+        const container = document.getElementById('matchingContent');
+        if (container) {
+            container.innerHTML = `
+                <div class="matching-start">
+                    <p>Ghép từ tiếng Anh với nghĩa tiếng Việt!</p>
+                    <button id="startMatching" class="btn btn-primary">
+                        <i class="fas fa-play"></i> Bắt đầu Matching Game
+                    </button>
+                </div>
+            `;
+            document.getElementById('startMatching').addEventListener('click', () => this.startMatchingGame());
+        }
+    }
+
+    // Speed Challenge Implementation
+    startSpeedChallenge() {
+        const selectedWords = this.getSelectedPracticeWords('speed');
+        
+        if (selectedWords.length === 0) {
+            this.showMessage('Vui lòng chọn ít nhất một bài học để luyện tập!', 'error');
+            return;
+        }
+
+        const timeLimit = parseInt(document.getElementById('speedTime').value);
+        this.currentSpeedChallenge = {
+            words: [...selectedWords].sort(() => Math.random() - 0.5),
+            currentIndex: 0,
+            score: 0,
+            timeLimit: timeLimit,
+            timeLeft: timeLimit,
+            timer: null,
+            isActive: true
+        };
+
+        this.startSpeedTimer();
+        this.renderSpeedQuestion();
+    }
+
+    startSpeedTimer() {
+        this.currentSpeedChallenge.timer = setInterval(() => {
+            this.currentSpeedChallenge.timeLeft--;
+            
+            if (this.currentSpeedChallenge.timeLeft <= 0) {
+                this.finishSpeedChallenge();
+            } else {
+                this.updateSpeedTimer();
+            }
+        }, 1000);
+    }
+
+    updateSpeedTimer() {
+        const timerElement = document.querySelector('.speed-time');
+        if (timerElement) {
+            timerElement.textContent = this.currentSpeedChallenge.timeLeft;
+            
+            // Change color based on time left
+            if (this.currentSpeedChallenge.timeLeft <= 10) {
+                timerElement.style.color = '#dc3545';
+            } else if (this.currentSpeedChallenge.timeLeft <= 30) {
+                timerElement.style.color = '#fd7e14';
+            }
+        }
+    }
+
+    renderSpeedQuestion() {
+        if (!this.currentSpeedChallenge.isActive) return;
+        
+        const container = document.getElementById('speedContent');
+        const currentWord = this.currentSpeedChallenge.words[this.currentSpeedChallenge.currentIndex % this.currentSpeedChallenge.words.length];
+        
+        // Determine question type randomly (English to Vietnamese or Vietnamese to English)
+        const isEnToVi = Math.random() < 0.5;
+        let questionText, correctAnswer, questionType, isVietnamese;
+        
+        if (isEnToVi) {
+            questionText = currentWord.english;
+            correctAnswer = currentWord.vietnamese;
+            questionType = 'Chọn nghĩa tiếng Việt:';
+            isVietnamese = true;
+        } else {
+            questionText = currentWord.vietnamese;
+            correctAnswer = currentWord.english;
+            questionType = 'Chọn từ tiếng Anh:';
+            isVietnamese = false;
+        }
+        
+        // Generate wrong answers
+        const wrongAnswers = this.generateSpeedWrongAnswers(correctAnswer, isVietnamese);
+        const allOptions = [correctAnswer, ...wrongAnswers].sort(() => Math.random() - 0.5);
+        
+        container.innerHTML = `
+            <div class="speed-timer">
+                <div class="speed-time">${this.currentSpeedChallenge.timeLeft}</div>
+                <div class="speed-score">Điểm: ${this.currentSpeedChallenge.score}</div>
+            </div>
+            
+            <div class="speed-question">
+                <div class="question-type-label">${questionType}</div>
+                <div class="speed-word-container">
+                    <div class="speed-word">${questionText}</div>
+                    ${isEnToVi ? `
+                        <button class="pronunciation-btn" onclick="app.speakWord('${currentWord.english}')" title="Phát âm">
+                            <i class="fas fa-volume-up"></i>
+                        </button>
+                    ` : ''}
+                </div>
+                <div class="speed-options">
+                    ${allOptions.map(option => `
+                        <div class="speed-option" onclick="app.selectSpeedAnswer('${option}', '${correctAnswer}')">
+                            ${option}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    generateSpeedWrongAnswers(correctAnswer, isVietnamese) {
+        // Use selected words for generating wrong answers
+        const selectedWords = this.getSelectedPracticeWords('speed');
+        const allAnswers = selectedWords.map(word => isVietnamese ? word.vietnamese : word.english);
+        const wrongAnswers = allAnswers.filter(answer => answer !== correctAnswer);
+        
+        // Shuffle and take 3 random wrong answers
+        return wrongAnswers.sort(() => Math.random() - 0.5).slice(0, 3);
+    }
+
+    selectSpeedAnswer(selectedAnswer, correctAnswer) {
+        if (!this.currentSpeedChallenge.isActive) return;
+        
+        const isCorrect = selectedAnswer === correctAnswer;
+        
+        // Visual feedback
+        document.querySelectorAll('.speed-option').forEach(option => {
+            if (option.textContent.trim() === selectedAnswer) {
+                option.classList.add(isCorrect ? 'correct' : 'incorrect');
+            } else if (option.textContent.trim() === correctAnswer) {
+                option.classList.add('correct');
+            }
+        });
+        
+        if (isCorrect) {
+            this.currentSpeedChallenge.score++;
+        }
+        
+        this.currentSpeedChallenge.currentIndex++;
+        
+        setTimeout(() => {
+            this.renderSpeedQuestion();
+        }, 500);
+    }
+
+    finishSpeedChallenge() {
+        this.currentSpeedChallenge.isActive = false;
+        clearInterval(this.currentSpeedChallenge.timer);
+        
+        const questionsAnswered = this.currentSpeedChallenge.currentIndex;
+        const accuracy = questionsAnswered > 0 ? Math.round((this.currentSpeedChallenge.score / questionsAnswered) * 100) : 0;
+        
+        const container = document.getElementById('speedContent');
+        container.innerHTML = `
+            <div class="practice-result">
+                <h3><i class="fas fa-bolt" style="color: #4facfe;"></i> Hoàn thành Speed Challenge!</h3>
+                <div class="quiz-score">${this.currentSpeedChallenge.score}</div>
+                <p>Điểm số trong ${this.currentSpeedChallenge.timeLimit} giây</p>
+                <p>Trả lời đúng: ${this.currentSpeedChallenge.score} / ${questionsAnswered} (${accuracy}%)</p>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="app.startSpeedChallenge()">
+                        <i class="fas fa-redo"></i> Thử lại
+                    </button>
+                    <button class="btn btn-secondary" onclick="app.backToModeSelector()">
+                        <i class="fas fa-arrow-left"></i> Chọn chế độ khác
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    resetSpeedChallenge() {
+        if (this.currentSpeedChallenge && this.currentSpeedChallenge.timer) {
+            clearInterval(this.currentSpeedChallenge.timer);
+        }
+        this.currentSpeedChallenge = null;
+        const container = document.getElementById('speedContent');
+        if (container) {
+            container.innerHTML = `
+                <div class="speed-start">
+                    <p>Trả lời nhanh nhất có thể trong thời gian cho phép!</p>
+                    <button id="startSpeed" class="btn btn-primary">
+                        <i class="fas fa-play"></i> Bắt đầu Speed Challenge
+                    </button>
+                </div>
+            `;
+            document.getElementById('startSpeed').addEventListener('click', () => this.startSpeedChallenge());
+        }
+    }
+
+    // Listening Practice Implementation
+    startListeningPractice() {
+        const selectedWords = this.getSelectedPracticeWords('listening');
+        
+        if (selectedWords.length === 0) {
+            this.showMessage('Vui lòng chọn ít nhất một bài học để luyện tập!', 'error');
+            return;
+        }
+
+        const length = parseInt(document.getElementById('listeningLength').value);
+        this.currentListeningPractice = {
+            words: [...selectedWords].sort(() => Math.random() - 0.5).slice(0, Math.min(length, selectedWords.length)),
+            currentIndex: 0,
+            correctAnswers: 0
+        };
+
+        this.renderListeningQuestion();
+    }
+
+    renderListeningQuestion() {
+        const container = document.getElementById('listeningContent');
+        const currentWord = this.currentListeningPractice.words[this.currentListeningPractice.currentIndex];
+        
+        // Determine question type randomly (English to Vietnamese or Vietnamese to English)
+        const isEnToVi = Math.random() < 0.5;
+        let questionText, correctAnswer, questionInstruction, isVietnamese, audioWord;
+        
+        if (isEnToVi) {
+            questionText = currentWord.english;
+            correctAnswer = currentWord.vietnamese;
+            questionInstruction = 'Nghe từ tiếng Anh và chọn nghĩa tiếng Việt:';
+            isVietnamese = true;
+            audioWord = currentWord.english;
+        } else {
+            questionText = currentWord.vietnamese;
+            correctAnswer = currentWord.english;
+            questionInstruction = 'Nghe nghĩa tiếng Việt và chọn từ tiếng Anh:';
+            isVietnamese = false;
+            audioWord = currentWord.vietnamese;
+        }
+        
+        // Generate wrong answers
+        const wrongAnswers = this.generateListeningWrongAnswers(correctAnswer, isVietnamese);
+        const allOptions = [correctAnswer, ...wrongAnswers].sort(() => Math.random() - 0.5);
+        
+        container.innerHTML = `
+            <div class="listening-progress">
+                <p>Câu ${this.currentListeningPractice.currentIndex + 1} / ${this.currentListeningPractice.words.length}</p>
+            </div>
+            
+            <div class="listening-question">
+                <p>${questionInstruction}</p>
+                <div class="listening-audio-controls">
+                    <button class="listening-audio-btn" onclick="app.speakWord('${audioWord}')" title="Nghe lại">
+                        <i class="fas fa-volume-up"></i> Nghe
+                    </button>
+                    ${!isEnToVi ? `
+                        <div class="listening-text-display">${questionText}</div>
+                    ` : ''}
+                </div>
+                
+                <div class="listening-options">
+                    ${allOptions.map(option => `
+                        <div class="listening-option" onclick="app.selectListeningAnswer('${option}', '${correctAnswer}')">
+                            ${option}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        // Auto play the word
+        setTimeout(() => {
+            this.speakWord(audioWord);
+        }, 500);
+    }
+
+    generateListeningWrongAnswers(correctAnswer, isVietnamese) {
+        // Use selected words for generating wrong answers
+        const selectedWords = this.getSelectedPracticeWords('listening');
+        const allAnswers = selectedWords.map(word => isVietnamese ? word.vietnamese : word.english);
+        const wrongAnswers = allAnswers.filter(answer => answer !== correctAnswer);
+        
+        // Shuffle and take 3 random wrong answers
+        return wrongAnswers.sort(() => Math.random() - 0.5).slice(0, 3);
+    }
+
+    selectListeningAnswer(selectedAnswer, correctAnswer) {
+        const isCorrect = selectedAnswer === correctAnswer;
+        
+        // Visual feedback
+        document.querySelectorAll('.listening-option').forEach(option => {
+            if (option.textContent.trim() === selectedAnswer) {
+                option.classList.add(isCorrect ? 'correct' : 'incorrect');
+            } else if (option.textContent.trim() === correctAnswer) {
+                option.classList.add('correct');
+            }
+        });
+        
+        if (isCorrect) {
+            this.currentListeningPractice.correctAnswers++;
+        }
+        
+        setTimeout(() => {
+            if (this.currentListeningPractice.currentIndex < this.currentListeningPractice.words.length - 1) {
+                this.currentListeningPractice.currentIndex++;
+                this.renderListeningQuestion();
+            } else {
+                this.finishListeningPractice();
+            }
+        }, 1500);
+    }
+
+    finishListeningPractice() {
+        const accuracy = Math.round((this.currentListeningPractice.correctAnswers / this.currentListeningPractice.words.length) * 100);
+        const container = document.getElementById('listeningContent');
+        
+        container.innerHTML = `
+            <div class="practice-result">
+                <h3><i class="fas fa-headphones" style="color: #4facfe;"></i> Hoàn thành Listening Practice!</h3>
+                <div class="quiz-score">${accuracy}%</div>
+                <p>Đúng ${this.currentListeningPractice.correctAnswers} / ${this.currentListeningPractice.words.length} từ</p>
+                
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="app.startListeningPractice()">
+                        <i class="fas fa-redo"></i> Luyện lại
+                    </button>
+                    <button class="btn btn-secondary" onclick="app.backToModeSelector()">
+                        <i class="fas fa-arrow-left"></i> Chọn chế độ khác
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    resetListeningPractice() {
+        this.currentListeningPractice = null;
+        const container = document.getElementById('listeningContent');
+        if (container) {
+            container.innerHTML = `
+                <div class="listening-start">
+                    <p>Nghe và chọn nghĩa đúng của từ!</p>
+                    <button id="startListening" class="btn btn-primary">
+                        <i class="fas fa-play"></i> Bắt đầu Listening Practice
+                    </button>
+                </div>
+            `;
+            document.getElementById('startListening').addEventListener('click', () => this.startListeningPractice());
+        }
+    }
+
+    // Practice Lesson Selection Methods
+    renderPracticeLessonCheckboxes(mode) {
+        const container = document.getElementById(`${mode}LessonCheckboxes`);
+        if (!container) return;
+
+        container.innerHTML = this.lessons.map(lesson => {
+            const wordCount = this.words.filter(word => word.lessonId === lesson.id).length;
+            const isSelected = this.selectedPracticeLessons[mode].includes(lesson.id);
+            
+            return `
+                <div class="practice-lesson-checkbox-item ${isSelected ? 'selected' : ''}" 
+                     onclick="app.togglePracticeLesson('${mode}', '${lesson.id}')">
+                    <div class="practice-lesson-checkbox ${isSelected ? 'checked' : ''}"></div>
+                    <div class="practice-lesson-checkbox-color color-${lesson.color}"></div>
+                    <div class="practice-lesson-checkbox-label">${lesson.name}</div>
+                    <div class="practice-lesson-checkbox-count">${wordCount} từ</div>
+                </div>
+            `;
+        }).join('');
+
+        this.updatePracticeInfo(mode);
+    }
+
+    togglePracticeLesson(mode, lessonId) {
+        const index = this.selectedPracticeLessons[mode].indexOf(lessonId);
+        
+        if (index > -1) {
+            this.selectedPracticeLessons[mode].splice(index, 1);
+        } else {
+            this.selectedPracticeLessons[mode].push(lessonId);
+        }
+        
+        this.renderPracticeLessonCheckboxes(mode);
+    }
+
+    selectAllPracticeLessons(mode) {
+        this.selectedPracticeLessons[mode] = this.lessons.map(lesson => lesson.id);
+        this.renderPracticeLessonCheckboxes(mode);
+    }
+
+    deselectAllPracticeLessons(mode) {
+        this.selectedPracticeLessons[mode] = [];
+        this.renderPracticeLessonCheckboxes(mode);
+    }
+
+    updatePracticeInfo(mode) {
+        const infoElement = document.getElementById(`${mode}SelectedInfo`);
+        if (!infoElement) return;
+
+        const selectedCount = this.selectedPracticeLessons[mode].length;
+        const selectedWords = this.getSelectedPracticeWords(mode);
+        
+        if (selectedCount === 0) {
+            infoElement.innerHTML = '<i class="fas fa-info-circle"></i> Chưa chọn bài học nào';
+        } else if (selectedCount === this.lessons.length) {
+            infoElement.innerHTML = `<i class="fas fa-check-circle"></i> Đã chọn tất cả ${this.lessons.length} bài học (${selectedWords.length} từ)`;
+        } else {
+            infoElement.innerHTML = `<i class="fas fa-check-circle"></i> Đã chọn ${selectedCount} bài học (${selectedWords.length} từ)`;
+        }
+    }
+
+    getSelectedPracticeWords(mode) {
+        if (this.selectedPracticeLessons[mode].length === 0) {
+            return [];
+        }
+        
+        return this.words.filter(word => 
+            this.selectedPracticeLessons[mode].includes(word.lessonId)
+        );
     }
 }
 
