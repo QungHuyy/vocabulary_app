@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ứng dụng học từ vựng tiếng Anh</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-book"></i> Học từ vựng tiếng Anh</h1>
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-number" id="totalWords">0</span>
+                    <span class="stat-label">Từ vựng</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="learnedWords">0</span>
+                    <span class="stat-label">Đã học</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-number" id="accuracy">0%</span>
+                    <span class="stat-label">Độ chính xác</span>
+                </div>
+            </div>
+        </header>
+
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="lessons">
+                <i class="fas fa-folder"></i> Bài học
+            </button>
+            <button class="tab-btn" data-tab="add">
+                <i class="fas fa-plus"></i> Thêm từ
+            </button>
+            <button class="tab-btn" data-tab="list">
+                <i class="fas fa-list"></i> Danh sách
+            </button>
+            <button class="tab-btn" data-tab="quiz">
+                <i class="fas fa-question-circle"></i> Luyện tập
+            </button>
+            <button class="tab-btn" data-tab="review">
+                <i class="fas fa-eye"></i> Ôn tập
+            </button>
+        </nav>
+
+        <!-- Tab Bài học -->
+        <div class="tab-content active" id="lessons-tab">
+            <div class="card">
+                <div class="lessons-header">
+                    <h2><i class="fas fa-folder"></i> Quản lý bài học</h2>
+                    <button class="btn btn-primary" onclick="app.showCreateLessonForm()">
+                        <i class="fas fa-plus"></i> Tạo bài học mới
+                    </button>
+                </div>
+
+                <!-- Form tạo bài học mới -->
+                <div id="createLessonForm" class="lesson-form" style="display: none;">
+                    <h3><i class="fas fa-plus-circle"></i> Tạo bài học mới</h3>
+                    <form id="addLessonForm">
+                        <div class="form-group">
+                            <label for="lessonName">Tên bài học:</label>
+                            <input type="text" id="lessonName" required placeholder="VD: Gia đình và bạn bè">
+                        </div>
+                        <div class="form-group">
+                            <label for="lessonDescription">Mô tả (tùy chọn):</label>
+                            <textarea id="lessonDescription" placeholder="Mô tả ngắn về bài học này..." rows="3"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="lessonColor">Màu chủ đề:</label>
+                            <select id="lessonColor">
+                                <option value="blue">Xanh dương</option>
+                                <option value="green">Xanh lá</option>
+                                <option value="purple">Tím</option>
+                                <option value="orange">Cam</option>
+                                <option value="red">Đỏ</option>
+                                <option value="pink">Hồng</option>
+                            </select>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Tạo bài học
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="app.hideCreateLessonForm()">
+                                <i class="fas fa-times"></i> Hủy
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Danh sách bài học -->
+                <div id="lessonsList" class="lessons-list"></div>
+
+                <!-- Bài học hiện tại -->
+                <div id="currentLessonInfo" class="current-lesson-info">
+                    <div class="current-lesson-card">
+                        <h3><i class="fas fa-book-open"></i> Bài học hiện tại</h3>
+                        <div id="currentLessonDisplay"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Thêm từ vựng -->
+        <div class="tab-content" id="add-tab">
+            <div class="card">
+                <h2><i class="fas fa-plus-circle"></i> Thêm từ vựng mới</h2>
+                <div id="currentLessonSelector" class="lesson-selector">
+                    <label for="selectedLesson">Thêm vào bài học:</label>
+                    <select id="selectedLesson">
+                        <option value="">Chọn bài học...</option>
+                    </select>
+                </div>
+                <form id="addWordForm">
+                    <div class="form-group">
+                        <label for="englishWord">Từ tiếng Anh:</label>
+                        <div class="input-with-button">
+                            <div class="autocomplete-container">
+                                <input type="text" id="englishWord" required placeholder="VD: beautiful" autocomplete="off">
+                                <div class="autocomplete-suggestions" id="englishSuggestions"></div>
+                            </div>
+                            <button type="button" class="btn-pronunciation" onclick="app.speakWord(document.getElementById('englishWord').value)" title="Phát âm">
+                                <i class="fas fa-volume-up"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="vietnameseMeaning">Nghĩa tiếng Việt:</label>
+                        <div class="translation-container">
+                            <input type="text" id="vietnameseMeaning" required placeholder="VD: xinh đẹp">
+                            <div class="translation-status" id="translationStatus"></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="example">Ví dụ (tùy chọn):</label>
+                        <input type="text" id="example" placeholder="VD: She is very beautiful">
+                    </div>
+                    <div class="form-group">
+                        <label for="category">Danh mục:</label>
+                        <select id="category">
+                            <option value="general">Tổng quát</option>
+                            <option value="adjective">Tính từ</option>
+                            <option value="noun">Danh từ</option>
+                            <option value="verb">Động từ</option>
+                            <option value="adverb">Trạng từ</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Lưu từ vựng
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tab Danh sách từ vựng -->
+        <div class="tab-content" id="list-tab">
+            <div class="card">
+                <div class="list-header">
+                    <h2><i class="fas fa-list"></i> Danh sách từ vựng</h2>
+                    <div class="search-filter">
+                        <select id="filterLesson">
+                            <option value="">Tất cả bài học</option>
+                        </select>
+                        <input type="text" id="searchWord" placeholder="Tìm kiếm từ vựng...">
+                        <select id="filterCategory">
+                            <option value="">Tất cả danh mục</option>
+                            <option value="general">Tổng quát</option>
+                            <option value="adjective">Tính từ</option>
+                            <option value="noun">Danh từ</option>
+                            <option value="verb">Động từ</option>
+                            <option value="adverb">Trạng từ</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="wordsList" class="words-list"></div>
+            </div>
+        </div>
+
+        <!-- Tab Luyện tập -->
+        <div class="tab-content" id="quiz-tab">
+            <div class="card">
+                <div class="quiz-header">
+                    <h2><i class="fas fa-question-circle"></i> Luyện tập từ vựng</h2>
+                    <div class="quiz-settings">
+                        <label>
+                            Số câu hỏi:
+                            <select id="quizLength">
+                                <option value="5">5 câu</option>
+                                <option value="10" selected>10 câu</option>
+                                <option value="15">15 câu</option>
+                                <option value="20">20 câu</option>
+                            </select>
+                        </label>
+                        <label>
+                            Chế độ:
+                            <select id="quizMode">
+                                <option value="en-to-vi">Anh → Việt</option>
+                                <option value="vi-to-en">Việt → Anh</option>
+                                <option value="mixed">Hỗn hợp</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+                <div id="quizContent">
+                    <div class="quiz-start">
+                        <p>Sẵn sàng kiểm tra kiến thức từ vựng của bạn?</p>
+                        <button id="startQuiz" class="btn btn-primary">
+                            <i class="fas fa-play"></i> Bắt đầu luyện tập
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Ôn tập -->
+        <div class="tab-content" id="review-tab">
+            <div class="card">
+                <h2><i class="fas fa-eye"></i> Ôn tập từ vựng</h2>
+                
+                <!-- Chọn bài học để ôn tập -->
+                <div class="review-lesson-selector">
+                    <h3><i class="fas fa-check-square"></i> Chọn bài học để ôn tập</h3>
+                    <div class="lesson-checkboxes" id="reviewLessonCheckboxes">
+                        <!-- Checkboxes will be populated by JavaScript -->
+                    </div>
+                    <div class="select-all-controls">
+                        <button type="button" class="btn btn-small btn-primary" onclick="app.selectAllLessons()">
+                            <i class="fas fa-check-double"></i> Chọn tất cả
+                        </button>
+                        <button type="button" class="btn btn-small btn-secondary" onclick="app.deselectAllLessons()">
+                            <i class="fas fa-times"></i> Bỏ chọn tất cả
+                        </button>
+                    </div>
+                </div>
+
+                <div class="review-controls">
+                    <button id="startReview" class="btn btn-secondary">
+                        <i class="fas fa-play"></i> Bắt đầu ôn tập
+                    </button>
+                    <button id="shuffleReview" class="btn btn-secondary">
+                        <i class="fas fa-random"></i> Xáo trộn
+                    </button>
+                </div>
+                <div id="reviewContent" class="review-content">
+                    <p>Chọn bài học và nhấn "Bắt đầu ôn tập" để xem lại từ vựng đã học</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal xác nhận xóa -->
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <h3>Xác nhận xóa</h3>
+            <p>Bạn có chắc chắn muốn xóa từ vựng này không?</p>
+            <div class="modal-actions">
+                <button id="confirmDelete" class="btn btn-danger">Xóa</button>
+                <button id="cancelDelete" class="btn btn-secondary">Hủy</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 
