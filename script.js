@@ -2980,12 +2980,21 @@ class VocabularyAppIndexedDB extends VocabularyApp {
             this.setupAutocomplete();
             this.setupTranslation();
             
-            // Load sample data if no lessons exist
-            if (this.lessons.length === 0) {
+            // Load sample data if no lessons exist AND storage is empty
+            if (this.lessons.length === 0 && this.words.length === 0) {
+                console.log('🔄 No data found, loading sample data...');
                 await this.loadSampleData();
+            } else {
+                console.log('✅ Data loaded from IndexedDB:', {
+                    lessons: this.lessons.length,
+                    words: this.words.length
+                });
             }
             
             console.log('✅ VocabularyAppIndexedDB initialized successfully');
+            
+            // Debug storage after initialization
+            await this.debugStorage();
             
         } catch (error) {
             console.error('❌ App initialization failed:', error);
@@ -3036,11 +3045,24 @@ class VocabularyAppIndexedDB extends VocabularyApp {
 
     async loadData() {
         try {
+            console.log('🔄 Loading data from IndexedDB...');
+            
             // Load all data from storage
-            this.lessons = await this.storage.getAllLessons();
-            this.words = await this.storage.getAllWords();
-            this.quizProgress = await this.storage.getProgress();
-            this.currentLessonId = await this.storage.getSetting('currentLessonId');
+            this.lessons = await this.storage.getAllLessons() || [];
+            this.words = await this.storage.getAllWords() || [];
+            this.quizProgress = await this.storage.getProgress() || {
+                totalQuestions: 0,
+                correctAnswers: 0,
+                streakCount: 0,
+                bestStreak: 0
+            };
+            this.currentLessonId = await this.storage.getSetting('currentLessonId') || null;
+            
+            console.log('📊 IndexedDB data loaded:', {
+                lessons: this.lessons.length,
+                words: this.words.length,
+                currentLessonId: this.currentLessonId
+            });
             
             // Load practice lesson selections
             const savedPracticeLessons = await this.storage.getSetting('selectedPracticeLessons');
@@ -3060,21 +3082,34 @@ class VocabularyAppIndexedDB extends VocabularyApp {
                     listening: [...allLessonIds]
                 };
                 await this.saveToStorage();
+                console.log('🔧 Initialized practice lesson selections');
             }
             
-            console.log('✅ Data loaded successfully');
+            console.log('✅ Data loaded successfully from IndexedDB');
             
         } catch (error) {
-            console.error('Error loading data:', error);
-            // Don't throw, just use empty arrays
-            this.lessons = this.lessons || [];
-            this.words = this.words || [];
-            this.quizProgress = this.quizProgress || {
+            console.error('❌ Error loading data from IndexedDB:', error);
+            
+            // Initialize with empty data if loading fails
+            this.lessons = [];
+            this.words = [];
+            this.quizProgress = {
                 totalQuestions: 0,
                 correctAnswers: 0,
-                totalWords: 0,
-                learnedWords: []
+                streakCount: 0,
+                bestStreak: 0
             };
+            this.currentLessonId = null;
+            this.selectedPracticeLessons = {
+                quiz: [],
+                flashcards: [],
+                spelling: [],
+                matching: [],
+                speed: [],
+                listening: []
+            };
+            
+            console.log('⚠️ Using empty data due to load error');
         }
     }
 
@@ -3301,5 +3336,42 @@ class VocabularyAppIndexedDB extends VocabularyApp {
     async createAutoBackup() {
         await this.createIndexedDBAutoBackup();
         this.showMessage('🔄 Đã tạo backup tự động!', 'success');
+    }
+
+    // Debug method to check IndexedDB status
+    async debugStorage() {
+        console.log('🔍 DEBUG: Checking IndexedDB storage...');
+        
+        if (!this.storage) {
+            console.error('❌ Storage adapter not available');
+            return;
+        }
+
+        try {
+            const lessons = await this.storage.getAllLessons();
+            const words = await this.storage.getAllWords();
+            const progress = await this.storage.getProgress();
+            const currentLessonId = await this.storage.getSetting('currentLessonId');
+            
+            console.log('📊 IndexedDB Debug Info:', {
+                storage: !!this.storage,
+                storageReady: this.storage.isReady,
+                lessonsCount: lessons?.length || 0,
+                wordsCount: words?.length || 0,
+                currentLessonId: currentLessonId,
+                progress: progress
+            });
+            
+            if (lessons && lessons.length > 0) {
+                console.log('📚 Lessons in IndexedDB:', lessons.map(l => ({ id: l.id, name: l.name, wordCount: words?.filter(w => w.lessonId === l.id).length || 0 })));
+            }
+            
+            if (words && words.length > 0) {
+                console.log('📖 Sample words in IndexedDB:', words.slice(0, 5).map(w => ({ english: w.english, vietnamese: w.vietnamese, lessonId: w.lessonId })));
+            }
+            
+        } catch (error) {
+            console.error('❌ Debug storage error:', error);
+        }
     }
 } 
