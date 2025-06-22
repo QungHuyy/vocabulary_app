@@ -205,14 +205,37 @@ class StorageAdapter {
         await this.ensureReady();
         
         if (this.currentStorage === 'indexeddb') {
-            // Clear existing lessons and add new ones
-            const transaction = this.indexedDBStorage.db.transaction(['lessons'], 'readwrite');
-            const store = transaction.objectStore('lessons');
-            await store.clear();
+            console.log('💾 Saving lessons to IndexedDB:', lessons.length);
             
+            // Get existing lessons to compare
+            const existingLessons = await this.indexedDBStorage.getAllLessons();
+            const existingIds = existingLessons.map(l => l.id);
+            
+            // Update or add new lessons
             for (const lesson of lessons) {
-                await this.indexedDBStorage.addLesson(lesson);
+                try {
+                    if (existingIds.includes(lesson.id)) {
+                        await this.indexedDBStorage.updateLesson(lesson);
+                        console.log('✅ Updated lesson:', lesson.id);
+                    } else {
+                        await this.indexedDBStorage.addLesson(lesson);
+                        console.log('✅ Added new lesson:', lesson.id);
+                    }
+                } catch (error) {
+                    console.error('❌ Error saving lesson:', lesson.id, error);
+                }
             }
+            
+            // Remove lessons that no longer exist
+            const newIds = lessons.map(l => l.id);
+            for (const existingLesson of existingLessons) {
+                if (!newIds.includes(existingLesson.id)) {
+                    await this.indexedDBStorage.deleteLesson(existingLesson.id);
+                    console.log('🗑️ Removed lesson:', existingLesson.id);
+                }
+            }
+            
+            console.log('✅ All lessons saved to IndexedDB');
         } else {
             localStorage.setItem('vocabularyLessons', JSON.stringify(lessons));
         }

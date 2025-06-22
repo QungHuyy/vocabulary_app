@@ -1,0 +1,62 @@
+[
+  {
+    "english": "house",
+    "vietnamese": "ngôi nhà",
+    "example": "I live in a beautiful house.",
+    "category": "noun"
+  },
+  {
+    "english": "car",
+    "vietnamese": "xe hơi",
+    "example": "My father drives a red car.",
+    "category": "noun"
+  },
+  {
+    "english": "happy",
+    "vietnamese": "vui vẻ, hạnh phúc",
+    "example": "She looks very happy today.",
+    "category": "adjective"
+  },
+  {
+    "english": "run",
+    "vietnamese": "chạy",
+    "example": "I run every morning.",
+    "category": "verb"
+  },
+  {
+    "english": "beautiful",
+    "vietnamese": "đẹp",
+    "example": "The flower is beautiful.",
+    "category": "adjective"
+  },
+  {
+    "english": "book",
+    "vietnamese": "cuốn sách",
+    "example": "I read a book every night.",
+    "category": "noun"
+  },
+  {
+    "english": "eat",
+    "vietnamese": "ăn",
+    "example": "We eat dinner at 7 PM.",
+    "category": "verb"
+  },
+  {
+    "english": "water",
+    "vietnamese": "nước",
+    "example": "Please give me a glass of water.",
+    "category": "noun"
+  },
+  {
+    "english": "big",
+    "vietnamese": "to, lớn",
+    "example": "The elephant is very big.",
+    "category": "adjective"
+  },
+  {
+    "english": "learn",
+    "vietnamese": "học",
+    "example": "Students learn English at school.",
+    "category": "verb"
+  }
+] 

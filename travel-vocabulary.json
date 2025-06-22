@@ -1,0 +1,242 @@
+[
+  {
+    "english": "airport",
+    "vietnamese": "sân bay",
+    "example": "We arrived at the airport two hours early.",
+    "category": "noun"
+  },
+  {
+    "english": "hotel",
+    "vietnamese": "khách sạn",
+    "example": "The hotel has a beautiful view of the ocean.",
+    "category": "noun"
+  },
+  {
+    "english": "passport",
+    "vietnamese": "hộ chiếu",
+    "example": "Don't forget to bring your passport.",
+    "category": "noun"
+  },
+  {
+    "english": "luggage",
+    "vietnamese": "hành lý",
+    "example": "My luggage is too heavy.",
+    "category": "noun"
+  },
+  {
+    "english": "ticket",
+    "vietnamese": "vé",
+    "example": "I bought a plane ticket to Vietnam.",
+    "category": "noun"
+  },
+  {
+    "english": "vacation",
+    "vietnamese": "kỳ nghỉ",
+    "example": "We had a wonderful vacation in Japan.",
+    "category": "noun"
+  },
+  {
+    "english": "tourist",
+    "vietnamese": "khách du lịch",
+    "example": "Many tourists visit this city every year.",
+    "category": "noun"
+  },
+  {
+    "english": "museum",
+    "vietnamese": "bảo tàng",
+    "example": "The museum has many ancient artifacts.",
+    "category": "noun"
+  },
+  {
+    "english": "beach",
+    "vietnamese": "bãi biển",
+    "example": "We spent the whole day at the beach.",
+    "category": "noun"
+  },
+  {
+    "english": "restaurant",
+    "vietnamese": "nhà hàng",
+    "example": "This restaurant serves delicious local food.",
+    "category": "noun"
+  },
+  {
+    "english": "explore",
+    "vietnamese": "khám phá",
+    "example": "I love to explore new places.",
+    "category": "verb"
+  },
+  {
+    "english": "travel",
+    "vietnamese": "du lịch",
+    "example": "I travel to different countries every year.",
+    "category": "verb"
+  },
+  {
+    "english": "visit",
+    "vietnamese": "thăm quan",
+    "example": "We plan to visit the famous temple.",
+    "category": "verb"
+  },
+  {
+    "english": "book",
+    "vietnamese": "đặt (chỗ)",
+    "example": "I need to book a hotel room.",
+    "category": "verb"
+  },
+  {
+    "english": "check in",
+    "vietnamese": "làm thủ tục nhận phòng",
+    "example": "What time can we check in?",
+    "category": "verb"
+  },
+  {
+    "english": "check out",
+    "vietnamese": "làm thủ tục trả phòng",
+    "example": "We need to check out before 11 AM.",
+    "category": "verb"
+  },
+  {
+    "english": "pack",
+    "vietnamese": "đóng gói",
+    "example": "I need to pack my clothes for the trip.",
+    "category": "verb"
+  },
+  {
+    "english": "exciting",
+    "vietnamese": "thú vị, hấp dẫn",
+    "example": "The trip was very exciting.",
+    "category": "adjective"
+  },
+  {
+    "english": "beautiful",
+    "vietnamese": "đẹp",
+    "example": "The scenery is absolutely beautiful.",
+    "category": "adjective"
+  },
+  {
+    "english": "crowded",
+    "vietnamese": "đông đúc",
+    "example": "The tourist area was very crowded.",
+    "category": "adjective"
+  },
+  {
+    "english": "expensive",
+    "vietnamese": "đắt",
+    "example": "Hotels in the city center are expensive.",
+    "category": "adjective"
+  },
+  {
+    "english": "comfortable",
+    "vietnamese": "thoải mái",
+    "example": "The hotel bed is very comfortable.",
+    "category": "adjective"
+  },
+  {
+    "english": "local",
+    "vietnamese": "địa phương",
+    "example": "Try some local food while you're here.",
+    "category": "adjective"
+  },
+  {
+    "english": "foreign",
+    "vietnamese": "nước ngoài",
+    "example": "She enjoys learning about foreign cultures.",
+    "category": "adjective"
+  },
+  {
+    "english": "destination",
+    "vietnamese": "điểm đến",
+    "example": "Paris is a popular travel destination.",
+    "category": "noun"
+  },
+  {
+    "english": "souvenir",
+    "vietnamese": "quà lưu niệm",
+    "example": "I bought some souvenirs for my family.",
+    "category": "noun"
+  },
+  {
+    "english": "map",
+    "vietnamese": "bản đồ",
+    "example": "Do you have a map of the city?",
+    "category": "noun"
+  },
+  {
+    "english": "guide",
+    "vietnamese": "hướng dẫn viên",
+    "example": "Our tour guide was very knowledgeable.",
+    "category": "noun"
+  },
+  {
+    "english": "culture",
+    "vietnamese": "văn hóa",
+    "example": "I'm interested in learning about local culture.",
+    "category": "noun"
+  },
+  {
+    "english": "adventure",
+    "vietnamese": "cuộc phiêu lưu",
+    "example": "This trip was a great adventure.",
+    "category": "noun"
+  },
+  {
+    "english": "flight",
+    "vietnamese": "chuyến bay",
+    "example": "Our flight was delayed for two hours.",
+    "category": "noun"
+  },
+  {
+    "english": "taxi",
+    "vietnamese": "taxi",
+    "example": "We took a taxi from the airport to the hotel.",
+    "category": "noun"
+  },
+  {
+    "english": "train",
+    "vietnamese": "tàu hỏa",
+    "example": "The train journey was very scenic.",
+    "category": "noun"
+  },
+  {
+    "english": "bus",
+    "vietnamese": "xe buýt",
+    "example": "The bus tour includes all major attractions.",
+    "category": "noun"
+  },
+  {
+    "english": "currency",
+    "vietnamese": "tiền tệ",
+    "example": "What's the local currency here?",
+    "category": "noun"
+  },
+  {
+    "english": "exchange",
+    "vietnamese": "đổi tiền",
+    "example": "Where can I exchange money?",
+    "category": "verb"
+  },
+  {
+    "english": "reservation",
+    "vietnamese": "đặt chỗ trước",
+    "example": "Do you have a reservation?",
+    "category": "noun"
+  },
+  {
+    "english": "landmark",
+    "vietnamese": "địa danh",
+    "example": "The Eiffel Tower is a famous landmark.",
+    "category": "noun"
+  },
+  {
+    "english": "backpack",
+    "vietnamese": "ba lô",
+    "example": "I prefer traveling with just a backpack.",
+    "category": "noun"
+  },
+  {
+    "english": "camping",
+    "vietnamese": "cắm trại",
+    "example": "We went camping in the mountains.",
+    "category": "noun"
+  }
+] 

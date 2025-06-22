@@ -506,6 +506,9 @@ class VocabularyApp {
                     <button class="btn btn-small btn-warning" onclick="event.stopPropagation(); app.editLesson('${lesson.id}')">
                         <i class="fas fa-edit"></i> Sửa
                     </button>
+                    <button class="btn btn-small btn-success" onclick="event.stopPropagation(); app.showImportLessonModal('${lesson.id}')" title="Import từ vựng từ file JSON">
+                        <i class="fas fa-file-import"></i> Import
+                    </button>
                     <button class="btn btn-small btn-danger" onclick="event.stopPropagation(); app.deleteLesson('${lesson.id}')">
                         <i class="fas fa-trash"></i> Xóa
                     </button>
@@ -951,6 +954,13 @@ class VocabularyApp {
     }
 
     async saveToStorage() {
+        console.log('💾 Saving to storage:', {
+            words: this.words.length,
+            lessons: this.lessons.length,
+            currentLessonId: this.currentLessonId,
+            storageType: this.storage ? 'IndexedDB' : 'localStorage'
+        });
+        
         if (this.storage) {
             // Use IndexedDB via StorageAdapter
             await this.storage.saveAll({
@@ -960,6 +970,7 @@ class VocabularyApp {
                 progress: this.quizProgress,
                 selectedPracticeLessons: this.selectedPracticeLessons
             });
+            console.log('✅ Data saved to IndexedDB via StorageAdapter');
         } else {
             // Fallback to localStorage
             localStorage.setItem('vocabularyWords', JSON.stringify(this.words));
@@ -967,6 +978,7 @@ class VocabularyApp {
             localStorage.setItem('currentLessonId', this.currentLessonId || '');
             localStorage.setItem('quizProgress', JSON.stringify(this.quizProgress));
             localStorage.setItem('selectedPracticeLessons', JSON.stringify(this.selectedPracticeLessons));
+            console.log('✅ Data saved to localStorage');
         }
         
         // Create auto backup after saving (only if enabled)
@@ -2996,7 +3008,9 @@ class VocabularyAppIndexedDB extends VocabularyApp {
             // Load sample data if no lessons exist AND storage is empty
             if (this.lessons.length === 0 && this.words.length === 0) {
                 console.log('🔄 No data found, loading sample data...');
-                await this.loadSampleData();
+                this.loadSampleData(); // Call synchronous version
+                await this.saveToStorage(); // Save sample data
+                console.log('✅ Sample data loaded and saved');
             } else {
                 console.log('✅ Data loaded from IndexedDB:', {
                     lessons: this.lessons.length,
@@ -3394,6 +3408,279 @@ class VocabularyAppIndexedDB extends VocabularyApp {
             
         } catch (error) {
             console.error('❌ Debug storage error:', error);
+        }
+    }
+
+    // Import lesson functionality
+    showImportLessonModal(lessonId) {
+        const lesson = this.lessons.find(l => l.id === lessonId);
+        if (!lesson) {
+            this.showMessage('Không tìm thấy bài học!', 'error');
+            return;
+        }
+
+        this.currentImportLessonId = lessonId;
+        
+        // Update modal info
+        document.getElementById('importLessonName').textContent = lesson.name;
+        document.getElementById('importLessonDescription').textContent = lesson.description || 'Không có mô tả';
+        
+        const currentWordCount = this.words.filter(word => word.lessonId === lessonId).length;
+        document.getElementById('currentWordCount').textContent = currentWordCount;
+        
+        // Reset modal state
+        document.getElementById('importPreview').style.display = 'none';
+        document.getElementById('importLessonConfirm').disabled = true;
+        document.getElementById('lessonJsonFile').value = '';
+        document.getElementById('skipDuplicates').checked = true;
+        document.getElementById('replaceExisting').checked = false;
+        
+        this.importData = null;
+        
+        // Setup drag and drop
+        this.setupLessonDragDrop();
+        
+        // Show modal
+        document.getElementById('importLessonModal').style.display = 'block';
+    }
+
+    closeImportLessonModal() {
+        document.getElementById('importLessonModal').style.display = 'none';
+        this.currentImportLessonId = null;
+        this.importData = null;
+    }
+
+    setupLessonDragDrop() {
+        const uploadZone = document.querySelector('.upload-zone');
+        
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, this.preventDefaults, false);
+            document.body.addEventListener(eventName, this.preventDefaults, false);
+        });
+
+        // Highlight drop zone when item is dragged over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, () => uploadZone.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadZone.addEventListener(eventName, () => uploadZone.classList.remove('dragover'), false);
+        });
+
+        // Handle dropped files
+        uploadZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            this.handleLessonFiles(files);
+        }, false);
+    }
+
+    preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    handleLessonFileSelect(event) {
+        const files = event.target.files;
+        this.handleLessonFiles(files);
+    }
+
+    handleLessonFiles(files) {
+        if (files.length === 0) return;
+        
+        const file = files[0];
+        
+        if (!file.name.toLowerCase().endsWith('.json')) {
+            this.showMessage('Vui lòng chọn file JSON!', 'error');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const jsonData = JSON.parse(e.target.result);
+                this.processLessonImportData(jsonData);
+            } catch (error) {
+                console.error('JSON parse error:', error);
+                this.showMessage('File JSON không hợp lệ: ' + error.message, 'error');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    processLessonImportData(data) {
+        let words = [];
+        
+        // Handle different JSON formats
+        if (Array.isArray(data)) {
+            words = data;
+        } else if (data.words && Array.isArray(data.words)) {
+            words = data.words;
+        } else if (data.vocabulary && Array.isArray(data.vocabulary)) {
+            words = data.vocabulary;
+        } else {
+            this.showMessage('Định dạng JSON không được hỗ trợ. Cần array từ vựng hoặc object có property "words"/"vocabulary".', 'error');
+            return;
+        }
+
+        // Validate and normalize word data
+        const validWords = [];
+        const errors = [];
+
+        words.forEach((word, index) => {
+            const normalizedWord = this.normalizeImportWord(word, index);
+            if (normalizedWord.error) {
+                errors.push(normalizedWord.error);
+            } else {
+                validWords.push(normalizedWord);
+            }
+        });
+
+        if (errors.length > 0) {
+            console.warn('Import validation errors:', errors);
+            if (validWords.length === 0) {
+                this.showMessage('Không có từ vựng hợp lệ nào trong file!', 'error');
+                return;
+            }
+        }
+
+        this.importData = validWords;
+        this.showImportPreview(validWords);
+        document.getElementById('importLessonConfirm').disabled = false;
+    }
+
+    normalizeImportWord(word, index) {
+        // Check required fields
+        if (!word.english || typeof word.english !== 'string' || word.english.trim() === '') {
+            return { error: `Từ ${index + 1}: Thiếu từ tiếng Anh` };
+        }
+        
+        if (!word.vietnamese || typeof word.vietnamese !== 'string' || word.vietnamese.trim() === '') {
+            return { error: `Từ ${index + 1}: Thiếu nghĩa tiếng Việt` };
+        }
+
+        // Normalize word object
+        return {
+            id: Date.now() + Math.random() + index,
+            english: word.english.trim(),
+            vietnamese: word.vietnamese.trim(),
+            example: word.example ? word.example.trim() : '',
+            category: word.category || 'noun',
+            lessonId: this.currentImportLessonId,
+            addedDate: new Date().toISOString(),
+            reviewed: 0,
+            lastReviewed: null
+        };
+    }
+
+    showImportPreview(words) {
+        const preview = document.getElementById('importPreview');
+        const wordsList = document.getElementById('previewWordsList');
+        const wordCount = document.getElementById('previewWordCount');
+        const duplicatesCount = document.getElementById('previewDuplicates');
+
+        // Check for duplicates
+        const existingWords = this.words.filter(w => w.lessonId === this.currentImportLessonId);
+        const duplicates = words.filter(newWord => 
+            existingWords.some(existing => 
+                existing.english.toLowerCase() === newWord.english.toLowerCase()
+            )
+        );
+
+        wordCount.textContent = `${words.length} từ vựng`;
+        duplicatesCount.textContent = `${duplicates.length} từ trùng lặp`;
+
+        // Show preview list (first 10 words)
+        const previewWords = words.slice(0, 10);
+        wordsList.innerHTML = previewWords.map(word => {
+            const isDuplicate = duplicates.includes(word);
+            return `
+                <div class="preview-word-item ${isDuplicate ? 'duplicate' : ''}">
+                    <div>
+                        <strong>${word.english}</strong> - ${word.vietnamese}
+                        ${word.example ? `<br><small><em>${word.example}</em></small>` : ''}
+                    </div>
+                    <div class="word-category">${this.getCategoryName(word.category)}</div>
+                    ${isDuplicate ? '<small style="color: #ff9800;">Trùng lặp</small>' : ''}
+                </div>
+            `;
+        }).join('');
+
+        if (words.length > 10) {
+            wordsList.innerHTML += `<div class="preview-word-item">... và ${words.length - 10} từ khác</div>`;
+        }
+
+        preview.style.display = 'block';
+    }
+
+    async confirmLessonImport() {
+        if (!this.importData || !this.currentImportLessonId) {
+            this.showMessage('Không có dữ liệu để import!', 'error');
+            return;
+        }
+
+        const skipDuplicates = document.getElementById('skipDuplicates').checked;
+        const replaceExisting = document.getElementById('replaceExisting').checked;
+
+        try {
+            let importedCount = 0;
+            let skippedCount = 0;
+            let replacedCount = 0;
+
+            const existingWords = this.words.filter(w => w.lessonId === this.currentImportLessonId);
+
+            for (const newWord of this.importData) {
+                const existingIndex = existingWords.findIndex(existing => 
+                    existing.english.toLowerCase() === newWord.english.toLowerCase()
+                );
+
+                if (existingIndex !== -1) {
+                    // Word already exists
+                    if (replaceExisting) {
+                        // Replace existing word
+                        const globalIndex = this.words.findIndex(w => w.id === existingWords[existingIndex].id);
+                        this.words[globalIndex] = { ...newWord, id: existingWords[existingIndex].id };
+                        replacedCount++;
+                    } else if (skipDuplicates) {
+                        // Skip duplicate
+                        skippedCount++;
+                        continue;
+                    } else {
+                        // Add anyway with modified name
+                        newWord.english = newWord.english + ' (2)';
+                        this.words.push(newWord);
+                        importedCount++;
+                    }
+                } else {
+                    // New word
+                    this.words.push(newWord);
+                    importedCount++;
+                }
+            }
+
+            // Save to storage
+            await this.saveToStorage();
+
+            // Update UI
+            this.updateStats();
+            this.renderWordsList();
+            this.renderLessonsList();
+            this.updateLessonSelectors();
+
+            // Show success message
+            let message = `Import thành công! `;
+            if (importedCount > 0) message += `${importedCount} từ mới, `;
+            if (replacedCount > 0) message += `${replacedCount} từ được thay thế, `;
+            if (skippedCount > 0) message += `${skippedCount} từ bị bỏ qua, `;
+            message = message.replace(/, $/, '');
+
+            this.showMessage(message, 'success');
+            this.closeImportLessonModal();
+
+        } catch (error) {
+            console.error('Import error:', error);
+            this.showMessage('Lỗi khi import: ' + error.message, 'error');
         }
     }
 } 
