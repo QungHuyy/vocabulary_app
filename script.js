@@ -955,6 +955,11 @@ class VocabularyApp {
             localStorage.setItem('quizProgress', JSON.stringify(this.quizProgress));
             localStorage.setItem('selectedPracticeLessons', JSON.stringify(this.selectedPracticeLessons));
         }
+        
+        // Create auto backup after saving (only if enabled)
+        if (this.autoBackupEnabled) {
+            this.createAutoBackup();
+        }
     }
 
     showMessage(message, type) {
@@ -2884,6 +2889,68 @@ class VocabularyAppIndexedDB extends VocabularyApp {
             console.warn('StorageAdapter not available, falling back to localStorage');
             this.storage = null;
         }
+        
+        // Setup auto-backup for IndexedDB (different from localStorage)
+        this.setupIndexedDBAutoBackup();
+    }
+
+    // Auto-backup system for IndexedDB
+    setupIndexedDBAutoBackup() {
+        // Create backup every 10 minutes for IndexedDB (less frequent than localStorage)
+        setInterval(() => {
+            this.createIndexedDBAutoBackup();
+        }, 10 * 60 * 1000); // 10 minutes
+
+        // Create backup on page unload
+        window.addEventListener('beforeunload', () => {
+            this.createIndexedDBAutoBackup();
+        });
+
+        // Auto-backup flag
+        this.indexedDBAutoBackupEnabled = true;
+    }
+
+    async createIndexedDBAutoBackup() {
+        if (!this.indexedDBAutoBackupEnabled || !this.storage) return;
+        
+        try {
+            // Create auto backup with timestamp
+            const timestamp = new Date().toLocaleString('vi-VN');
+            const description = `Auto-backup ${timestamp}`;
+            
+            await this.storage.createBackup(description);
+            console.log('🔄 IndexedDB auto-backup created:', description);
+            
+            // Keep only last 5 auto-backups (cleanup old ones)
+            await this.cleanupOldAutoBackups();
+            
+        } catch (error) {
+            console.error('❌ IndexedDB auto-backup failed:', error);
+        }
+    }
+
+    async cleanupOldAutoBackups() {
+        try {
+            if (!this.storage || !this.storage.indexedDBStorage) return;
+            
+            const backups = await this.storage.indexedDBStorage.getAllBackups();
+            
+            // Filter auto-backups and sort by date
+            const autoBackups = backups
+                .filter(backup => backup.description.startsWith('Auto-backup'))
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            // Keep only 5 most recent auto-backups
+            const backupsToDelete = autoBackups.slice(5);
+            
+            for (const backup of backupsToDelete) {
+                await this.storage.indexedDBStorage.deleteBackup(backup.id);
+                console.log('🗑️ Deleted old auto-backup:', backup.description);
+            }
+            
+        } catch (error) {
+            console.error('❌ Cleanup old backups failed:', error);
+        }
     }
 
     async init() {
@@ -3154,5 +3221,85 @@ class VocabularyAppIndexedDB extends VocabularyApp {
             console.error('Verification failed:', error);
             this.showMessage('Lỗi xác minh: ' + error.message, 'error');
         }
+    }
+
+    // Export data to file for GitHub Pages backup (IndexedDB version)
+    async exportDataToFile() {
+        try {
+            const exportData = {
+                words: this.words,
+                lessons: this.lessons,
+                currentLessonId: this.currentLessonId,
+                quizProgress: this.quizProgress,
+                selectedPracticeLessons: this.selectedPracticeLessons,
+                exportDate: new Date().toISOString(),
+                version: '1.0',
+                storageType: 'IndexedDB'
+            };
+
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `vocabulary-indexeddb-backup-${new Date().toISOString().split('T')[0]}.json`;
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            this.showMessage('📁 Đã xuất file backup IndexedDB thành công!', 'success');
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showMessage('❌ Lỗi xuất file backup!', 'error');
+        }
+    }
+
+    // Import data from file (IndexedDB version)
+    async importDataFromFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const importData = JSON.parse(e.target.result);
+                
+                // Validate imported data
+                if (!importData.words || !importData.lessons) {
+                    throw new Error('File backup không hợp lệ');
+                }
+
+                // Confirm import
+                if (confirm('Bạn có chắc chắn muốn nhập dữ liệu này? Dữ liệu hiện tại sẽ bị thay thế.')) {
+                    this.words = importData.words;
+                    this.lessons = importData.lessons;
+                    this.currentLessonId = importData.currentLessonId;
+                    this.quizProgress = importData.quizProgress || this.quizProgress;
+                    this.selectedPracticeLessons = importData.selectedPracticeLessons || this.selectedPracticeLessons;
+                    
+                    // Save to IndexedDB
+                    await this.saveToStorage();
+                    this.updateStats();
+                    this.renderWordsList();
+                    this.renderLessonsList();
+                    this.updateCurrentLessonDisplay();
+                    
+                    this.showMessage('✅ Đã nhập dữ liệu vào IndexedDB thành công!', 'success');
+                }
+            } catch (error) {
+                console.error('Import error:', error);
+                this.showMessage('❌ Lỗi nhập file backup!', 'error');
+            }
+        };
+        
+        reader.readAsText(file);
+        event.target.value = ''; // Reset file input
+    }
+
+    // Manual trigger for auto-backup
+    async createAutoBackup() {
+        await this.createIndexedDBAutoBackup();
+        this.showMessage('🔄 Đã tạo backup tự động!', 'success');
     }
 } 

@@ -310,13 +310,44 @@
                     </div>
                 </div>
 
+                <!-- File Backup for GitHub Pages -->
+                <div class="file-backup-panel">
+                    <h3><i class="fas fa-file-download"></i> Backup File (GitHub Pages)</h3>
+                    <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">
+                        <i class="fas fa-info-circle"></i> Dành cho GitHub Pages - tải file backup để tránh mất dữ liệu
+                    </p>
+                    <div class="backup-controls">
+                        <button class="btn btn-success" onclick="app.exportDataToFile()">
+                            <i class="fas fa-download"></i> Tải file backup (.json)
+                        </button>
+                        <button class="btn btn-info" onclick="app.createAutoBackup()">
+                            <i class="fas fa-sync"></i> Tạo backup tự động
+                        </button>
+                    </div>
+                    
+                    <div class="auto-backup-status" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;">
+                        <h4><i class="fas fa-shield-alt"></i> Trạng thái Auto-backup:</h4>
+                        <p id="autoBackupStatus">✅ IndexedDB auto-backup đang hoạt động (mỗi 10 phút)</p>
+                        <p style="font-size: 0.85em; color: #666;">
+                            • <strong>IndexedDB:</strong> Backup tự động mỗi 10 phút và khi thoát trang<br>
+                            • <strong>Lưu trữ:</strong> Backup trong database IndexedDB (không mất khi F5)<br>
+                            • <strong>Dự phòng:</strong> Giữ 5 bản backup auto gần nhất<br>
+                            • <strong>File backup:</strong> Tải file .json để backup lâu dài
+                        </p>
+                    </div>
+                </div>
+
                 <!-- Import Data -->
                 <div class="import-panel">
                     <h3><i class="fas fa-upload"></i> Nhập dữ liệu</h3>
                     <div class="import-controls">
                         <input type="file" id="importFileInput" accept=".json" style="display: none;" onchange="app.importData(event)">
+                        <input type="file" id="importFileBackup" accept=".json" style="display: none;" onchange="app.importDataFromFile(event)">
                         <button class="btn btn-secondary" onclick="document.getElementById('importFileInput').click()">
-                            <i class="fas fa-file-import"></i> Chọn file JSON
+                            <i class="fas fa-file-import"></i> Nhập từ IndexedDB backup
+                        </button>
+                        <button class="btn btn-primary" onclick="document.getElementById('importFileBackup').click()">
+                            <i class="fas fa-file-upload"></i> Nhập từ file backup (.json)
                         </button>
                     </div>
                 </div>
@@ -799,6 +830,29 @@
             display: flex;
             gap: 10px;
             margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .file-backup-panel {
+            background: #e8f5e8;
+            border: 1px solid #4CAF50;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+
+        .file-backup-panel h3 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }
+
+        .auto-backup-status h4 {
+            margin: 0 0 10px 0;
+            color: #1976d2;
+        }
+
+        .auto-backup-status p {
+            margin: 5px 0;
         }
         
         .backups-container {
