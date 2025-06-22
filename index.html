@@ -437,6 +437,11 @@
                     // Initialize VocabularyApp with IndexedDB support
                     showMigrationBanner('Đang khởi tạo IndexedDB...', 30);
                     app = new VocabularyAppIndexedDB();
+                    console.log('✅ IndexedDB App created');
+                    
+                    // Initialize the app (load data, setup UI)
+                    showMigrationBanner('Đang tải dữ liệu...', 60);
+                    await app.init();
                     console.log('✅ IndexedDB App initialized');
                 } else {
                     // Fallback to regular localStorage app
@@ -463,6 +468,12 @@
                 setTimeout(() => {
                     setupEventListeners();
                     updateStorageDisplay();
+                    
+                    // Force update stats to ensure header displays correct data
+                    if (app && app.updateStats) {
+                        app.updateStats();
+                        console.log('🔄 Forced stats update after initialization');
+                    }
                 }, 100);
                 
             } catch (error) {

@@ -929,12 +929,25 @@ class VocabularyApp {
 
     updateStats() {
         document.getElementById('totalWords').textContent = this.words.length;
-        document.getElementById('learnedWords').textContent = this.quizProgress.learnedWords.length;
+        
+        // Handle learnedWords - it might be array or number
+        const learnedWordsCount = this.quizProgress.learnedWords 
+            ? (Array.isArray(this.quizProgress.learnedWords) 
+                ? this.quizProgress.learnedWords.length 
+                : this.quizProgress.learnedWords)
+            : 0;
+        document.getElementById('learnedWords').textContent = learnedWordsCount;
         
         const accuracy = this.quizProgress.totalQuestions > 0 
             ? Math.round((this.quizProgress.correctAnswers / this.quizProgress.totalQuestions) * 100)
             : 0;
         document.getElementById('accuracy').textContent = accuracy + '%';
+        
+        console.log('📊 Stats updated:', {
+            totalWords: this.words.length,
+            learnedWords: learnedWordsCount,
+            accuracy: accuracy + '%'
+        });
     }
 
     async saveToStorage() {
@@ -2992,6 +3005,12 @@ class VocabularyAppIndexedDB extends VocabularyApp {
             }
             
             console.log('✅ VocabularyAppIndexedDB initialized successfully');
+            console.log('🔍 Final app state:', {
+                words: this.words.length,
+                lessons: this.lessons.length,
+                currentLessonId: this.currentLessonId,
+                quizProgress: this.quizProgress
+            });
             
             // Debug storage after initialization
             await this.debugStorage();
@@ -3054,8 +3073,11 @@ class VocabularyAppIndexedDB extends VocabularyApp {
                 totalQuestions: 0,
                 correctAnswers: 0,
                 streakCount: 0,
-                bestStreak: 0
+                bestStreak: 0,
+                learnedWords: []
             };
+            
+            console.log('📊 Quiz progress loaded:', this.quizProgress);
             this.currentLessonId = await this.storage.getSetting('currentLessonId') || null;
             
             console.log('📊 IndexedDB data loaded:', {
